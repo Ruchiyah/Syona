@@ -1,8 +1,19 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+<resources>
     <style name="Base.Theme.Syona" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/color_primary</item>
+        <item name="colorPrimaryContainer">@color/color_secondary</item>
+        <item name="colorOnPrimary">@color/color_on_primary</item>
+        <item name="colorSecondary">@color/color_secondary</item>
+        <item name="colorOnSecondary">@color/color_on_secondary</item>
+    <item name="colorSecondaryContainer">@color/color_secondary</item>
+    <item name="colorOnSecondaryContainer">@color/color_on_secondary</item>
+        <item name="android:windowBackground">@color/color_background</item>
+        <item name="android:textColor">@color/color_on_background</item>
+        <item name="android:navigationBarColor">@color/color_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+
     </style>
 
     <style name="Theme.Syona" parent="Base.Theme.Syona" />

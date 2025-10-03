@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+        <TextView
+            android:id="@+id/stepSettingsTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/step_counter_title"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:fontFamily="sans-serif" />
+
+        <TextView
+            android:id="@+id/stepSettingsSubtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/step_settings_description"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:fontFamily="sans-serif"
+            tools:text="Tune how Syona counts your steps." />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/stepCounterSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/step_settings_enabled_label"
+            android:textColor="@color/text_primary"
+            android:fontFamily="sans-serif-medium"
+            android:paddingVertical="8dp" />
+
+        <TextView
+            android:id="@+id/stepPermissionInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/step_settings_permission_needed"
+            android:textColor="@color/color_error"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/sensorSectionLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/step_settings_sensor_choice"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/sensorToggleCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:padding="12dp"
+            app:cardBackgroundColor="@color/color_background_soft"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/light_gray"
+            app:strokeWidth="1dp">
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/sensorChipGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                app:chipSpacingHorizontal="12dp"
+                app:chipSpacingVertical="8dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/sensorChipAuto"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/step_settings_auto"
+                    android:textAppearance="@style/TextAppearance.Syona.Chip"
+                    app:chipBackgroundColor="@color/step_chip_background"
+                    app:chipCornerRadius="20dp"
+                    app:chipIcon="@drawable/ic_trending_up"
+                    app:chipIconSize="18dp"
+                    app:chipIconTint="@color/step_chip_icon_tint"
+                    app:chipIconVisible="true"
+                    app:chipStrokeColor="@color/step_chip_stroke"
+                    app:chipStrokeWidth="1dp"
+                    app:rippleColor="@color/step_chip_ripple" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/sensorChipCounter"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/step_settings_counter"
+                    android:textAppearance="@style/TextAppearance.Syona.Chip"
+                    app:chipBackgroundColor="@color/step_chip_background"
+                    app:chipCornerRadius="20dp"
+                    app:chipIcon="@drawable/icons8_feet"
+                    app:chipIconSize="18dp"
+                    app:chipIconTint="@color/step_chip_icon_tint"
+                    app:chipIconVisible="true"
+                    app:chipStrokeColor="@color/step_chip_stroke"
+                    app:chipStrokeWidth="1dp"
+                    app:rippleColor="@color/step_chip_ripple" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/sensorChipDetector"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checkable="true"
+                    android:text="@string/step_settings_detector"
+                    android:textAppearance="@style/TextAppearance.Syona.Chip"
+                    app:chipBackgroundColor="@color/step_chip_background"
+                    app:chipCornerRadius="20dp"
+                    app:chipIcon="@drawable/ic_flash"
+                    app:chipIconSize="18dp"
+                    app:chipIconTint="@color/step_chip_icon_tint"
+                    app:chipIconVisible="true"
+                    app:chipStrokeColor="@color/step_chip_stroke"
+                    app:chipStrokeWidth="1dp"
+                    app:rippleColor="@color/step_chip_ripple" />
+
+            </com.google.android.material.chip.ChipGroup>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:id="@+id/sensorInfoText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif"
+            tools:text="Syona automatically picks the best available step sensor on your device." />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/goalInputLayout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:hint="@string/step_settings_goal_label">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/goalInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:textColor="@color/text_primary"
+                android:fontFamily="sans-serif"
+                android:hint="@string/step_settings_goal_hint" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/resetStepsButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/step_settings_reset"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:textColor="@color/color_gradient_end"
+            android:fontFamily="sans-serif-medium" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="end"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancelButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/step_settings_cancel"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:textColor="@color/text_secondary"
+                android:fontFamily="sans-serif-medium" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="@string/step_settings_save"
+                android:textColor="@android:color/white"
+                android:background="@drawable/blue_green_gradient"
+                app:backgroundTint="@null"
+                app:cornerRadius="16dp"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+</LinearLayout>

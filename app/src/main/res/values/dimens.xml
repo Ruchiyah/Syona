@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default dimensions for mobile phones -->
+<resources>
+    <!-- Spacing -->
+    <dimen name="spacing_large">24dp</dimen>
+    <dimen name="spacing_medium">16dp</dimen>
+    <dimen name="spacing_small">12dp</dimen>
+    <dimen name="spacing_extra_small">8dp</dimen>
+
+    <!-- Card dimensions -->
+    <dimen name="card_radius_large">24dp</dimen>
+    <dimen name="card_elevation">6dp</dimen>
+    <dimen name="habit_card_radius">28dp</dimen>
+
+    <!-- Text sizes -->
+    <dimen name="text_size_heading">22sp</dimen>
+    <dimen name="text_size_title">16sp</dimen>
+    <dimen name="text_size_body">14sp</dimen>
+    <dimen name="text_size_caption">12sp</dimen>
+
+    <!-- Habit item dimensions -->
+    <dimen name="habit_item_min_height">88dp</dimen>
+    <dimen name="habit_icon_size">48dp</dimen>
+    <dimen name="habit_checkbox_size">32dp</dimen>
+    <dimen name="habit_padding_horizontal">18dp</dimen>
+    <dimen name="habit_padding_vertical">18dp</dimen>
+
+    <!-- Header dimensions -->
+    <dimen name="habits_header_height">112dp</dimen>
+    <dimen name="header_text_size">20sp</dimen>
+
+    <!-- Bottom navigation -->
+    <dimen name="bottom_nav_padding_vertical">2dp</dimen>
+    <dimen name="bottom_nav_icon_size">20dp</dimen>
+    <dimen name="bottom_nav_label_text_size">12sp</dimen>
+    <dimen name="design_bottom_navigation_height">42dp</dimen>
+
+    <!-- Progress indicators -->
+    <dimen name="indicator_size">12dp</dimen>
+    <dimen name="indicator_margin">6dp</dimen>
+
+    <!-- Mood card dimensions -->
+    <dimen name="mood_card_radius">24dp</dimen>
+    <dimen name="mood_toggle_height">48dp</dimen>
+    <dimen name="mood_option_spacing">8dp</dimen>
+    <dimen name="mood_option_min_width">64dp</dimen>
+
+    <!-- Layout widths -->
+    <dimen name="max_content_width">600dp</dimen>
+    <dimen name="sheet_max_width">480dp</dimen>
+</resources>

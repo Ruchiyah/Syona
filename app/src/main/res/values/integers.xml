@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default layout configuration for phones -->
+<resources>
+    <!-- Icon grid span count for phones -->
+    <integer name="habit_icon_grid_columns">3</integer>
+
+    <!-- Mood calendar columns -->
+    <integer name="mood_calendar_columns">7</integer>
+
+    <!-- Single-column layout for phones -->
+    <bool name="is_two_column_layout">false</bool>
+</resources>
+

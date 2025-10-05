@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/spacing_medium"
+    android:clickable="false"
+    android:focusable="false"
+    app:cardCornerRadius="@dimen/habit_card_radius"
+    app:cardElevation="@dimen/card_elevation"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="@android:color/white">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="@dimen/habit_item_min_height"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/habit_padding_horizontal"
+        android:paddingTop="@dimen/habit_padding_vertical"
+        android:paddingEnd="@dimen/habit_padding_horizontal"
+        android:paddingBottom="@dimen/habit_padding_vertical">
+
+        <CheckBox
+            android:id="@+id/habitCheckBox"
+            android:layout_width="@dimen/habit_checkbox_size"
+            android:layout_height="@dimen/habit_checkbox_size"
+            android:layout_marginEnd="@dimen/spacing_medium"
+            android:button="@drawable/custom_checkbox"
+            android:padding="0dp" />
+
+        <FrameLayout
+            android:layout_width="@dimen/habit_icon_size"
+            android:layout_height="@dimen/habit_icon_size"
+            android:layout_marginEnd="@dimen/spacing_medium"
+            android:background="@drawable/bg_icon_square"
+            android:foregroundGravity="center">
+
+            <ImageView
+                android:id="@+id/habitIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:tint="@color/color_gradient_start"
+                android:contentDescription="@string/content_description_habit_icon"
+                tools:src="@drawable/ic_habit_heart" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/textContainer"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/habitName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/color_on_background"
+                android:textSize="@dimen/text_size_title"
+                android:textStyle="bold"
+                tools:text="Morning tea" />
+
+            <TextView
+                android:id="@+id/habitFrequency"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/color_text_secondary"
+                android:textSize="@dimen/text_size_caption"
+                tools:text="Weekdays" />
+        </LinearLayout>
+
+        <!-- Single options button aligned to the right -->
+        <ImageButton
+            android:id="@+id/optionsButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/content_description_edit_habit"
+            android:padding="8dp"
+            android:src="@drawable/ic_more"
+            android:tint="@color/color_text_secondary" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

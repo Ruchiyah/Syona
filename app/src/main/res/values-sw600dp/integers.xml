@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Layout configuration for tablets in landscape mode -->
+<resources>
+    <!-- Icon grid span count for tablets -->
+    <integer name="habit_icon_grid_columns">5</integer>
+
+    <!-- Mood calendar columns -->
+    <integer name="mood_calendar_columns">7</integer>
+
+    <!-- Two-column layout for habits on large tablets -->
+    <bool name="is_two_column_layout">true</bool>
+</resources>
+

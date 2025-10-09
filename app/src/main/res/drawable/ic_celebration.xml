@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="280dp"
+    android:height="280dp"
+    android:viewportWidth="280"
+    android:viewportHeight="280">
+    
+    <!-- Center Trophy Circle Background -->
+    <path
+        android:fillColor="#FFE5B4"
+        android:pathData="M140,70 C100,70 70,100 70,140 C70,180 100,210 140,210 C180,210 210,180 210,140 C210,100 180,70 140,70 Z"/>
+    
+    <!-- Trophy/Medal -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M140,90 L125,110 L155,110 Z"/>
+    
+    <path
+        android:fillColor="#FFA500"
+        android:pathData="M140,110 C125,110 110,125 110,140 C110,155 125,170 140,170 C155,170 170,155 170,140 C170,125 155,110 140,110 Z"/>
+    
+    <!-- Trophy ribbon -->
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M130,90 L125,80 L120,90 Z"/>
+    <path
+        android:fillColor="#4ECDC4"
+        android:pathData="M150,90 L155,80 L160,90 Z"/>
+    
+    <!-- Center star on trophy -->
+    <path
+        android:fillColor="#FFF"
+        android:pathData="M140,130 L143,136 L150,137 L145,142 L146,149 L140,145 L134,149 L135,142 L130,137 L137,136 Z"/>
+    
+    <!-- Large star bursts around trophy -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M70,110 L75,115 L70,120 L65,115 Z"/>
+    
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M210,110 L215,115 L210,120 L205,115 Z"/>
+    
+    <path
+        android:fillColor="#FF69B4"
+        android:pathData="M60,140 L65,145 L60,150 L55,145 Z"/>
+    
+    <path
+        android:fillColor="#FF69B4"
+        android:pathData="M220,140 L225,145 L220,150 L215,145 Z"/>
+    
+    <path
+        android:fillColor="#00CED1"
+        android:pathData="M90,190 L95,195 L90,200 L85,195 Z"/>
+    
+    <path
+        android:fillColor="#00CED1"
+        android:pathData="M190,190 L195,195 L190,200 L185,195 Z"/>
+    
+    <!-- Confetti pieces - Top -->
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M50,70 L56,76 L50,82 L44,76 Z"/>
+    
+    <path
+        android:fillColor="#4ECDC4"
+        android:pathData="M230,70 L236,76 L230,82 L224,76 Z"/>
+    
+    <path
+        android:fillColor="#95E1D3"
+        android:pathData="M100,40 L105,45 L100,50 L95,45 Z"/>
+    
+    <path
+        android:fillColor="#F38181"
+        android:pathData="M180,40 L185,45 L180,50 L175,45 Z"/>
+    
+    <!-- Confetti pieces - Bottom -->
+    <path
+        android:fillColor="#95E1D3"
+        android:pathData="M40,170 L46,176 L40,182 L34,176 Z"/>
+    
+    <path
+        android:fillColor="#F38181"
+        android:pathData="M240,170 L246,176 L240,182 L234,176 Z"/>
+    
+    <path
+        android:fillColor="#FFD93D"
+        android:pathData="M100,230 L105,235 L100,240 L95,235 Z"/>
+    
+    <path
+        android:fillColor="#6BCB77"
+        android:pathData="M180,230 L185,235 L180,240 L175,235 Z"/>
+    
+    <!-- Small sparkles - scattered -->
+    <path
+        android:fillColor="#FFD93D"
+        android:pathData="M35,100 L38,103 L35,106 L32,103 Z"/>
+    
+    <path
+        android:fillColor="#6BCB77"
+        android:pathData="M245,100 L248,103 L245,106 L242,103 Z"/>
+    
+    <path
+        android:fillColor="#4D96FF"
+        android:pathData="M60,210 L63,213 L60,216 L57,213 Z"/>
+    
+    <path
+        android:fillColor="#FF6B9D"
+        android:pathData="M220,210 L223,213 L220,216 L217,213 Z"/>
+    
+    <path
+        android:fillColor="#A8E6CF"
+        android:pathData="M120,30 L122,32 L120,34 L118,32 Z"/>
+    
+    <path
+        android:fillColor="#FFD3B6"
+        android:pathData="M160,30 L162,32 L160,34 L158,32 Z"/>
+    
+    <path
+        android:fillColor="#FFAAA5"
+        android:pathData="M120,250 L122,252 L120,254 L118,252 Z"/>
+    
+    <path
+        android:fillColor="#FF8B94"
+        android:pathData="M160,250 L162,252 L160,254 L158,252 Z"/>
+    
+    <!-- Circle confetti -->
+    <path
+        android:fillColor="#2AB6A3"
+        android:pathData="M30,140 C30,137 27,137 27,140 C27,143 30,143 30,140 Z"/>
+    
+    <path
+        android:fillColor="#4D9BE6"
+        android:pathData="M250,140 C250,137 247,137 247,140 C247,143 250,143 250,140 Z"/>
+    
+    <path
+        android:fillColor="#FF6B6B"
+        android:pathData="M140,20 C140,17 137,17 137,20 C137,23 140,23 140,20 Z"/>
+    
+    <path
+        android:fillColor="#95E1D3"
+        android:pathData="M140,260 C140,257 137,257 137,260 C137,263 140,263 140,260 Z"/>
+</vector>

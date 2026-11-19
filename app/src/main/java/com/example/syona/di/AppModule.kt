@@ -5,7 +5,11 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import android.util.Base64
 import androidx.room.Room
+import com.example.syona.data.legacy.LegacyMigrator
+import com.example.syona.data.legacy.MigrationSink
+import com.example.syona.data.legacy.RoomMigrationSink
 import com.example.syona.data.settings.DataStoreSettingsStore
 import com.example.syona.data.settings.SettingsStore
 import com.example.syona.data.db.SyonaDatabase
@@ -14,6 +18,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 
 @Module
@@ -40,4 +45,29 @@ object AppModule {
     @Singleton
     fun provideSettingsStore(dataStore: DataStore<Preferences>): SettingsStore =
         DataStoreSettingsStore(dataStore)
+
+    @Provides
+    @Singleton
+    fun provideMigrationSink(sink: RoomMigrationSink): MigrationSink = sink
+
+    @Provides
+    @Singleton
+    fun provideLegacyMigrator(
+        @ApplicationContext context: Context,
+        sink: MigrationSink,
+        settings: SettingsStore
+    ): LegacyMigrator = LegacyMigrator(
+        readLegacyJson = {
+            context.getSharedPreferences("syona_prefs", Context.MODE_PRIVATE)
+                .getString("wellness_state", null)
+        },
+        sink = sink,
+        settings = settings,
+        savePhoto = { bytes ->
+            val f = File(context.filesDir, "profile.jpg")
+            f.writeBytes(bytes)
+            f.absolutePath
+        },
+        decodeBase64 = { Base64.decode(it, Base64.DEFAULT) }
+    )
 }

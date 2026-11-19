@@ -9,6 +9,7 @@ data class Habit(
     val name: String,
     val icon: HabitIcon = HabitIcon.HEART,
     val frequency: HabitFrequency = HabitFrequency.DAILY,
+    val customDays: List<Int>? = null,
     val completed: Boolean = false,
     val order: Int = 0,
     val notes: String? = null

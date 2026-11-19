@@ -50,6 +50,11 @@ class CircularProgressView @JvmOverloads constructor(
 
     private val rectF = RectF()
 
+    // Geometry is expressed as fractions of the view size; the original design used a fixed
+    // 300 px canvas (stroke 20, text 48/24, sub-text offset 40, inset 30), so proportions match.
+    private var inset = 30f
+    private var subtextOffset = 40f
+
     fun setProgress(current: Int, max: Int) {
         this.progress = if (max > 0) (current.toFloat() / max.toFloat()) * 100f else 0f
         this.maxProgress = 100f
@@ -63,7 +68,7 @@ class CircularProgressView @JvmOverloads constructor(
 
         val centerX = width / 2f
         val centerY = height / 2f
-        val radius = minOf(centerX, centerY) - 30f
+        val radius = minOf(centerX, centerY) - inset
 
         rectF.set(
             centerX - radius,
@@ -84,12 +89,31 @@ class CircularProgressView @JvmOverloads constructor(
         canvas.drawText(centerText, centerX, textY, textPaint)
 
         // Draw progress text below
-        val subtextY = textY + 40f
+        val subtextY = textY + subtextOffset
         canvas.drawText(progressText, centerX, subtextY, subtextPaint)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val size = 300
+        // Previously a hard-coded 300 px, which ignored layout_width/height (260dp in the layout)
+        // and rendered much smaller than intended on high-density screens.
+        val defaultSize = (DEFAULT_SIZE_DP * resources.displayMetrics.density).toInt()
+        val size = minOf(resolveSize(defaultSize, widthMeasureSpec), resolveSize(defaultSize, heightMeasureSpec))
         setMeasuredDimension(size, size)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val scale = minOf(w, h) / DESIGN_SIZE_PX
+        backgroundPaint.strokeWidth = 20f * scale
+        progressPaint.strokeWidth = 20f * scale
+        textPaint.textSize = 48f * scale
+        subtextPaint.textSize = 24f * scale
+        inset = 30f * scale
+        subtextOffset = 40f * scale
+    }
+
+    private companion object {
+        const val DEFAULT_SIZE_DP = 260
+        const val DESIGN_SIZE_PX = 300f
     }
 }

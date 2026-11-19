@@ -39,12 +39,12 @@
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/content_description_close_sheet"
                 android:src="@drawable/ic_close_small"
-                android:tint="@color/color_text_secondary" />
+                app:tint="@color/color_text_secondary" />
         </RelativeLayout>
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/nameInputLayout"
-            style="@style/Widget.Material3.TextInputLayout.FilledBox"
+            style="@style/Widget.Syona.TextInputLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_medium"
@@ -83,7 +83,7 @@
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/frequencyInputLayout"
-            style="@style/Widget.Material3.TextInputLayout.FilledBox.ExposedDropdownMenu"
+            style="@style/Widget.Syona.TextInputLayout.ExposedDropdownMenu"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_large"
@@ -98,9 +98,43 @@
                 tools:text="Daily" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <LinearLayout
+            android:id="@+id/customDaysContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_medium"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="Select Days"
+                android:textColor="@color/color_text_secondary"
+                android:textSize="@dimen/text_size_body"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="7">
+
+                <CheckBox android:id="@+id/cbSun" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="S" android:buttonTint="@color/color_primary"/>
+                <CheckBox android:id="@+id/cbMon" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="M" android:buttonTint="@color/color_primary"/>
+                <CheckBox android:id="@+id/cbTue" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="T" android:buttonTint="@color/color_primary"/>
+                <CheckBox android:id="@+id/cbWed" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="W" android:buttonTint="@color/color_primary"/>
+                <CheckBox android:id="@+id/cbThu" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="T" android:buttonTint="@color/color_primary"/>
+                <CheckBox android:id="@+id/cbFri" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="F" android:buttonTint="@color/color_primary"/>
+                <CheckBox android:id="@+id/cbSat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="S" android:buttonTint="@color/color_primary"/>
+            </LinearLayout>
+        </LinearLayout>
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/notesInputLayout"
-            style="@style/Widget.Material3.TextInputLayout.FilledBox"
+            style="@style/Widget.Syona.TextInputLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/spacing_medium"

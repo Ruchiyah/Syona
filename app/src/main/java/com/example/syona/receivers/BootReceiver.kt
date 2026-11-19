@@ -20,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
             val stepPrefs = repository?.observeStepCounter()?.value
 
             // If step counter was enabled, restart the service
+            // StepCounterService.start() is a no-op if ACTIVITY_RECOGNITION was revoked
             if (stepPrefs?.enabled == true) {
                 StepCounterService.start(context)
             }

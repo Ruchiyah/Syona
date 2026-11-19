@@ -35,6 +35,7 @@
     <string name="content_description_reorder_habit">Reorder habit</string>
     <string name="content_description_header_star">Animated header star</string>
     <string name="content_description_close_sheet">Close habit form</string>
+    <string name="content_description_close_chart">Close mood chart</string>
     <string name="content_description_success_animation">Habit celebration animation</string>
     <string name="label_edit_habit">Edit Habit</string>
     <string name="label_habit_name">Habit name</string>
@@ -144,4 +145,5 @@
         <item>Non-binary</item>
         <item>Prefer not to say</item>
     </string-array>
+    <string name="error_select_custom_day">Select at least one day</string>
 </resources>

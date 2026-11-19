@@ -39,6 +39,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val dateChangeReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            // Refresh data when date/time changes (handles midnight reset)
+            repository.refreshAll()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -51,6 +58,16 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Register receiver for date/time changes
+        val filter = android.content.IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_TIME_TICK)
+        }
+        // System-only broadcasts; NOT_EXPORTED keeps other apps from triggering refreshes
+        ContextCompat.registerReceiver(this, dateChangeReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
@@ -72,6 +89,21 @@ class MainActivity : AppCompatActivity() {
 
         // Request permissions on first launch
         requestNecessaryPermissions()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Ensure data is fresh when returning to foreground
+        repository.refreshAll()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(dateChangeReceiver)
+        } catch (e: IllegalArgumentException) {
+            // Receiver might not be registered
+        }
     }
 
     private fun requestNecessaryPermissions() {

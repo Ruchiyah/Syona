@@ -43,7 +43,7 @@
                 android:contentDescription="@string/content_description_close_banner"
                 android:padding="8dp"
                 android:src="@drawable/ic_close_small"
-                android:tint="@color/color_mood_sheet_close_icon" />
+                app:tint="@color/color_mood_sheet_close_icon" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView

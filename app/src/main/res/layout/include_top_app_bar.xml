@@ -35,7 +35,7 @@
         android:layout_marginBottom="4dp"
         android:contentDescription="@string/content_description_header_star"
         android:src="@drawable/ic_star_twinkle"
-        android:tint="@android:color/white"
+        app:tint="@android:color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -48,7 +48,7 @@
         android:layout_marginBottom="2dp"
         android:contentDescription="@string/content_description_header_star"
         android:src="@drawable/ic_star_twinkle"
-        android:tint="@android:color/white"
+        app:tint="@android:color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 

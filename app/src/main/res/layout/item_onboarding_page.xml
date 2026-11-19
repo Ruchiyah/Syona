@@ -48,7 +48,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_gravity="center"
-                android:tint="@color/color_gradient_start"
+                app:tint="@color/color_gradient_start"
                 tools:src="@drawable/ic_nav_habits" />
 
         </com.google.android.material.card.MaterialCardView>

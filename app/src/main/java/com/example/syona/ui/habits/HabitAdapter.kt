@@ -30,16 +30,15 @@ class HabitAdapter(
         fun bind(habit: Habit) {
             binding.habitName.text = habit.name
             binding.habitFrequency.text = habit.frequency.displayName
-            binding.habitCheckBox.isChecked = habit.completed
             binding.habitIcon.setImageResource(habit.icon.drawableRes)
 
-            // Remove previous listeners to prevent duplicates
+            // Detach the listener from the previous binding BEFORE changing the checked state;
+            // otherwise a recycled row fires the old listener and toggles the wrong habit.
             binding.habitCheckBox.setOnCheckedChangeListener(null)
-            binding.optionsButton.setOnClickListener(null)
+            binding.habitCheckBox.isChecked = habit.completed
 
-            // Set fresh listeners
-            binding.habitCheckBox.setOnCheckedChangeListener { _, _ ->
-                onToggle(habit)
+            binding.habitCheckBox.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked != habit.completed) onToggle(habit)
             }
 
             binding.optionsButton.setOnClickListener { view ->

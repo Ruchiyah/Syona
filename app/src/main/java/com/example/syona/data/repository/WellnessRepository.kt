@@ -1,6 +1,21 @@
 package com.example.syona.data.repository
 
+import android.util.Log
+import com.example.syona.data.db.DailyGoalEntity
+import com.example.syona.data.db.GoalDao
+import com.example.syona.data.db.HabitCompletionEntity
+import com.example.syona.data.db.HabitDao
+import com.example.syona.data.db.HabitEntity
+import com.example.syona.data.db.MoodDao
+import com.example.syona.data.db.MoodEntryEntity
+import com.example.syona.data.db.ProfileDao
+import com.example.syona.data.db.ProfileEntity
+import com.example.syona.data.db.StepDao
+import com.example.syona.data.db.StepDayEntity
+import com.example.syona.data.db.WaterDao
+import com.example.syona.data.db.WaterLogEntity
 import com.example.syona.data.model.Habit
+import com.example.syona.data.model.HabitFrequency
 import com.example.syona.data.model.HabitIcon
 import com.example.syona.data.model.HydrationState
 import com.example.syona.data.model.MoodEntry
@@ -11,90 +26,158 @@ import com.example.syona.data.model.ProfileData
 import com.example.syona.data.model.StepCounterPreferences
 import com.example.syona.data.model.StepSensorType
 import com.example.syona.data.model.WellnessStats
-import com.example.syona.data.preferences.PreferencesManager
-import java.time.Instant
+import com.example.syona.data.settings.AppSettings
+import com.example.syona.data.settings.SettingsStore
+import com.example.syona.di.ApplicationScope
+import com.example.syona.domain.PerfectDays
+import com.example.syona.domain.StreakResult
+import java.time.Clock
 import java.time.LocalDate
-import java.time.ZoneId
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
-class WellnessRepository(private val preferencesManager: PreferencesManager) {
+/**
+ * Facade over Room + DataStore with the same public API the UI/services used before.
+ *
+ * After [awaitReady] has loaded everything once, the in-memory [State] is the source of truth:
+ * every write updates it (and the public StateFlows) synchronously under [lock], then enqueues
+ * the matching DB/DataStore write on a single ordered writer coroutine.
+ */
+@Singleton
+class WellnessRepository @Inject constructor(
+    private val habitDao: HabitDao,
+    private val moodDao: MoodDao,
+    private val waterDao: WaterDao,
+    private val stepDao: StepDao,
+    private val goalDao: GoalDao,
+    private val profileDao: ProfileDao,
+    private val settings: SettingsStore,
+    @ApplicationScope private val scope: CoroutineScope,
+    private val clock: Clock
+) {
+    private data class State(
+        val settings: AppSettings = AppSettings(),
+        val habits: List<HabitEntity> = emptyList(), // active, ordered by sortOrder, id
+        val completions: Set<HabitCompletionEntity> = emptySet(), // all days
+        val moods: List<MoodEntryEntity> = emptyList(), // newest first
+        val waterToday: Int = 0,
+        val stepsToday: Int = 0, // steps of settings.stepCounterDay
+        val profile: ProfileEntity? = null
+    )
+
+    private data class StreakKey(
+        val habits: List<HabitEntity>,
+        val completions: Set<HabitCompletionEntity>,
+        val today: Long,
+        val settings: AppSettings
+    )
+
+    private val lock = Any()
+
+    @Volatile
+    private var state = State()
+    private var waterGeneration = 0L
+    private var streakKey: StreakKey? = null
+    private var streakCache = StreakResult(0, 0)
+
+    private val today = MutableStateFlow(currentDay())
+
+    // Single writer: writes run one at a time, in exactly the order they were enqueued.
+    private val writes = Channel<suspend () -> Unit>(Channel.UNLIMITED)
+    private val ready = scope.async(start = CoroutineStart.LAZY) { load() }
 
     private val habitsFlow = MutableStateFlow<List<Habit>>(emptyList())
     private val moodFlow = MutableStateFlow<List<MoodEntry>>(emptyList())
+    private val moodPreferencesFlow = MutableStateFlow(MoodPreferences())
     private val hydrationFlow = MutableStateFlow(HydrationState())
     private val profileFlow = MutableStateFlow(ProfileData())
     private val statsFlow = MutableStateFlow(WellnessStats())
-    private val moodPreferencesFlow = MutableStateFlow(preferencesManager.getMoodPreferences())
-    private val stepCounterFlow = MutableStateFlow(preferencesManager.getStepCounterPreferences())
-    private val stepLock = Any()
+    private val stepCounterFlow = MutableStateFlow(StepCounterPreferences())
+
+    val hydrationState: StateFlow<HydrationState> = hydrationFlow.asStateFlow()
 
     init {
-        refreshAll()
-        // Sample mood data removed - users start with empty mood journal
+        scope.launch {
+            for (write in writes) {
+                try {
+                    write()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Persisting change failed", e)
+                }
+            }
+        }
+        publish()
     }
 
+    /** Completes once settings and the initial DB contents have been loaded into memory. */
+    suspend fun awaitReady() = ready.await()
+
+    /** Current hydration state, for callers outside the UI (e.g. the reminder worker). */
+    suspend fun hydrationSnapshot(): HydrationState {
+        awaitReady()
+        refreshAll() // the process may have outlived midnight; no-op on the same day
+        return hydrationFlow.value
+    }
+
+    private suspend fun load() {
+        val day = currentDay()
+        var loaded = settings.current()
+        val rollSteps = loaded.stepCounterDay < day
+        if (rollSteps) loaded = loaded.copy(lastSensorTotal = 0f, stepCounterDay = day)
+        val newState = State(
+            settings = loaded,
+            habits = habitDao.observeActive().first(),
+            completions = habitDao.observeAllCompletions().first().toSet(),
+            moods = moodDao.observeAll().first(),
+            waterToday = waterDao.totalForDay(day),
+            stepsToday = stepDao.observeDay(loaded.stepCounterDay).first()?.steps ?: 0,
+            profile = profileDao.get()
+        )
+        synchronized(lock) {
+            today.value = day
+            set(newState)
+            if (rollSteps) enqueue { settings.update { it.copy(lastSensorTotal = 0f, stepCounterDay = day) } }
+        }
+    }
+
+    /** Rolls the in-memory "today" over to the clock's current day (midnight, app resume). */
     fun refreshAll() {
-        val todayStart = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        refreshHabits(todayStart)
-        refreshMood()
-        refreshHydration(todayStart)
-        refreshProfile()
-        refreshStepCounter(todayStart)
-        recomputeStats()
-    }
-
-    private fun refreshHabits(todayStart: Long) {
-        val lastReset = preferencesManager.getHabitsResetDate()
-        val allHabits = preferencesManager.getHabits()
-        if (lastReset == 0L || lastReset < todayStart) {
-            val resetHabits = allHabits.map { it.copy(completed = false) }
-            preferencesManager.saveHabits(resetHabits)
-            preferencesManager.setHabitsResetDate(todayStart)
-            // Filter habits by frequency for today
-            habitsFlow.value = resetHabits.filter { it.frequency.shouldShowToday() }
-        } else {
-            // Filter habits by frequency for today
-            habitsFlow.value = allHabits.filter { it.frequency.shouldShowToday() }
-        }
-    }
-
-    private fun refreshMood() {
-        moodFlow.value = preferencesManager.getMoodEntries()
-        moodPreferencesFlow.value = preferencesManager.getMoodPreferences()
-    }
-
-    private fun refreshHydration(todayStart: Long) {
-        val state = preferencesManager.getHydrationState()
-        val resetState = if (state.lastResetDate < todayStart) {
-            state.copy(intake = 0, lastResetDate = todayStart)
-        } else state
-        hydrationFlow.value = resetState
-        if (resetState != state) {
-            preferencesManager.saveHydrationState(resetState)
-        }
-    }
-
-    private fun refreshProfile() {
-        profileFlow.value = preferencesManager.getProfile()
-    }
-
-    private fun refreshStepCounter(todayStart: Long) {
-        val prefs = preferencesManager.getStepCounterPreferences()
-        val needsReset = prefs.lastResetDate < todayStart
-        val resetPrefs = if (needsReset) {
-            prefs.copy(
-                stepsToday = 0,
-                lastSensorTotal = 0f,
-                lastResetDate = todayStart
-            )
-        } else {
-            prefs
-        }
-        stepCounterFlow.value = resetPrefs
-        if (needsReset) {
-            preferencesManager.saveStepCounterPreferences(resetPrefs)
+        synchronized(lock) {
+            // Read the day inside the lock: the reminder worker and the UI may both call this
+            // around midnight, and a stale read must not roll "today" back.
+            val day = currentDay()
+            if (day == today.value) return
+            today.value = day
+            val generation = ++waterGeneration
+            var next = state.copy(waterToday = 0)
+            if (next.settings.stepCounterDay < day) {
+                next = next.copy(
+                    stepsToday = 0,
+                    settings = next.settings.copy(lastSensorTotal = 0f, stepCounterDay = day)
+                )
+                enqueue { settings.update { it.copy(lastSensorTotal = 0f, stepCounterDay = day) } }
+            }
+            set(next)
+            enqueue {
+                val total = waterDao.totalForDay(day)
+                synchronized(lock) {
+                    if (today.value == day && waterGeneration == generation && total != state.waterToday) {
+                        set(state.copy(waterToday = total))
+                    }
+                }
+            }
         }
     }
 
@@ -112,334 +195,345 @@ class WellnessRepository(private val preferencesManager: PreferencesManager) {
 
     fun observeStepCounter(): StateFlow<StepCounterPreferences> = stepCounterFlow.asStateFlow()
 
-    fun addHabit(name: String, icon: HabitIcon, frequency: String, notes: String?) {
-        val current = habitsFlow.value.toMutableList()
-        val order = current.size
-        val habit = Habit(
-            name = name,
-            icon = icon,
-            frequency = com.example.syona.data.model.HabitFrequency.fromDisplayName(frequency),
-            order = order,
-            notes = notes
-        )
-        current.add(habit)
-        persistHabits(current)
+    // ---- Habits ----
+
+    fun addHabit(name: String, icon: HabitIcon, frequency: String, customDays: List<Int>?, notes: String?) {
+        synchronized(lock) {
+            val s = state
+            var id = clock.millis()
+            while (s.habits.any { it.id == id }) id++
+            val habit = HabitEntity(
+                id = id,
+                name = name,
+                icon = icon.name,
+                frequency = HabitFrequency.DAILY.name,
+                customDays = customDays.orEmpty(),
+                notes = notes,
+                sortOrder = (s.habits.maxOfOrNull { it.sortOrder } ?: -1) + 1,
+                createdAtDay = today.value
+            ).withFrequency(HabitFrequency.fromDisplayName(frequency))
+            set(s.copy(habits = s.habits + habit))
+            enqueue { habitDao.upsert(habit) }
+        }
     }
 
+    /** True if any stored active habit has [id], whether or not it is scheduled today. */
+    fun hasHabit(id: Long): Boolean = state.habits.any { it.id == id }
+
     fun updateHabit(updated: Habit) {
-        val current = habitsFlow.value.toMutableList()
-        val index = current.indexOfFirst { it.id == updated.id }
-        if (index != -1) {
-            current[index] = updated
-            persistHabits(current)
+        synchronized(lock) {
+            val s = state
+            val existing = s.habits.firstOrNull { it.id == updated.id } ?: return
+            val habit = existing.copy(
+                name = updated.name,
+                icon = updated.icon.name,
+                customDays = updated.customDays.orEmpty(),
+                notes = updated.notes
+            ).withFrequency(updated.frequency)
+            set(s.copy(habits = s.habits.map { if (it.id == habit.id) habit else it }))
+            enqueue { habitDao.upsert(habit) }
         }
     }
 
     fun toggleHabitCompletion(habitId: Long) {
-        val current = habitsFlow.value.toMutableList()
-        val index = current.indexOfFirst { it.id == habitId }
-        if (index != -1) {
-            val habit = current[index]
-            val newCompleted = !habit.completed
-            current[index] = habit.copy(completed = newCompleted)
-            persistHabits(current)
-            handleStreaks()
+        synchronized(lock) {
+            val s = state
+            if (s.habits.none { it.id == habitId }) return
+            val completion = HabitCompletionEntity(habitId, today.value)
+            if (completion in s.completions) {
+                set(s.copy(completions = s.completions - completion))
+                enqueue { habitDao.deleteCompletion(completion.habitId, completion.day) }
+            } else {
+                set(s.copy(completions = s.completions + completion))
+                enqueue { habitDao.insertCompletion(completion) }
+            }
         }
     }
 
+    /** Positions refer to today's visible list; hidden habits keep their relative slots. */
     fun reorderHabits(fromPosition: Int, toPosition: Int) {
-        val current = habitsFlow.value.toMutableList()
-        if (fromPosition in current.indices && toPosition in current.indices) {
-            val habit = current.removeAt(fromPosition)
-            current.add(toPosition, habit)
-            val reordered = current.mapIndexed { index, item ->
-                item.copy(order = index)
-            }
-            persistHabits(reordered)
+        synchronized(lock) {
+            val visible = habitsFlow.value.map { it.id }.toMutableList()
+            if (fromPosition !in visible.indices || toPosition !in visible.indices) return
+            visible.add(toPosition, visible.removeAt(fromPosition))
+            val s = state
+            val byId = s.habits.associateBy { it.id }
+            val visibleIds = visible.toSet()
+            val nextVisible = visible.iterator()
+            val reordered = s.habits
+                .map { if (it.id in visibleIds) byId.getValue(nextVisible.next()) else it }
+                .mapIndexed { index, habit -> habit.copy(sortOrder = index) }
+            val changed = reordered.filter { it != byId[it.id] }
+            if (changed.isEmpty()) return
+            set(s.copy(habits = reordered))
+            enqueue { habitDao.upsertAll(changed) }
         }
     }
 
     fun deleteHabit(habitId: Long) {
-        val current = habitsFlow.value.filterNot { it.id == habitId }
-        persistHabits(current.mapIndexed { index, habit -> habit.copy(order = index) })
-    }
-
-    private fun persistHabits(habits: List<Habit>) {
-        // Get all habits from preferences to maintain the complete list
-        val allStoredHabits = preferencesManager.getHabits()
-
-        // Create a map of existing habits by ID
-        val existingHabitsMap = allStoredHabits.associateBy { it.id }
-
-        // Merge the incoming habits with existing ones
-        val mergedHabits = habits.map { updatedHabit ->
-            // If this habit exists, use the updated version; otherwise keep the original
-            updatedHabit
-        }.toMutableList()
-
-        // Add habits that exist in storage but not in the incoming list
-        allStoredHabits.forEach { storedHabit ->
-            if (habits.none { it.id == storedHabit.id }) {
-                mergedHabits.add(storedHabit)
-            }
+        synchronized(lock) {
+            val s = state
+            set(
+                s.copy(
+                    habits = s.habits.filterNot { it.id == habitId },
+                    completions = s.completions.filterNot { it.habitId == habitId }.toSet()
+                )
+            )
+            enqueue { habitDao.delete(habitId) } // completions go via ON DELETE CASCADE
         }
-
-        // Save all habits (including those not shown today)
-        preferencesManager.saveHabits(mergedHabits)
-
-        // Only show habits that should be displayed today
-        habitsFlow.value = mergedHabits
-            .filter { it.frequency.shouldShowToday() }
-            .sortedBy { it.order }
-
-        recomputeStats()
     }
+
+    // ---- Mood ----
 
     fun addMoodEntry(moodType: MoodType, note: String?) {
-        val current = moodFlow.value.toMutableList()
-        current.add(0, MoodEntry(mood = moodType, note = note))
-        persistMood(current)
-        if (moodPreferencesFlow.value.insightsDismissed) {
-            preferencesManager.setMoodInsightsDismissed(false)
-            moodPreferencesFlow.value = moodPreferencesFlow.value.copy(insightsDismissed = false)
+        val now = clock.millis()
+        synchronized(lock) {
+            val s = state
+            var id = now
+            while (s.moods.any { it.id == id }) id++
+            val entry = MoodEntryEntity(id = id, score = moodType.score, note = note, timestamp = now)
+            set(s.copy(moods = (s.moods + entry).sortedByDescending { it.timestamp }))
+            enqueue { moodDao.insert(entry) }
+            if (s.settings.moodInsightsDismissed) updateSettings { it.copy(moodInsightsDismissed = false) }
         }
     }
 
     fun deleteMoodEntry(entryId: Long) {
-        val current = moodFlow.value.filterNot { it.id == entryId }
-        persistMood(current)
-    }
-
-    private fun persistMood(entries: List<MoodEntry>) {
-        preferencesManager.saveMoodEntries(entries)
-        moodFlow.value = entries.sortedByDescending { it.timestamp }
-        if (entries.isEmpty() && moodPreferencesFlow.value.insightsDismissed) {
-            preferencesManager.setMoodInsightsDismissed(false)
-            moodPreferencesFlow.value = moodPreferencesFlow.value.copy(insightsDismissed = false)
+        synchronized(lock) {
+            val s = state
+            val remaining = s.moods.filterNot { it.id == entryId }
+            set(s.copy(moods = remaining))
+            enqueue { moodDao.delete(entryId) }
+            if (remaining.isEmpty() && s.settings.moodInsightsDismissed) {
+                updateSettings { it.copy(moodInsightsDismissed = false) }
+            }
         }
-        recomputeStats()
     }
 
-    fun setMoodViewMode(mode: MoodViewMode) {
-        if (moodPreferencesFlow.value.viewMode == mode) return
-        preferencesManager.setMoodViewMode(mode)
-        moodPreferencesFlow.value = moodPreferencesFlow.value.copy(viewMode = mode)
-    }
+    fun setMoodViewMode(mode: MoodViewMode) = updateSettings { it.copy(moodViewMode = mode) }
 
-    fun setMoodInsightsDismissed(dismissed: Boolean) {
-        if (moodPreferencesFlow.value.insightsDismissed == dismissed) return
-        preferencesManager.setMoodInsightsDismissed(dismissed)
-        moodPreferencesFlow.value = moodPreferencesFlow.value.copy(insightsDismissed = dismissed)
-    }
+    fun setMoodInsightsDismissed(dismissed: Boolean) =
+        updateSettings { it.copy(moodInsightsDismissed = dismissed) }
+
+    // ---- Hydration ----
 
     fun updateHydrationState(update: (HydrationState) -> HydrationState) {
-        val oldState = hydrationFlow.value
-        val newState = update(oldState)
-        android.util.Log.d("WellnessRepo", "Hydration updated: ${oldState.intake}ml -> ${newState.intake}ml (goal: ${newState.dailyGoal}ml)")
-        hydrationFlow.value = newState
-        preferencesManager.saveHydrationState(newState)
-        recomputeStats()
+        synchronized(lock) {
+            val old = hydrationFlow.value
+            val new = update(old)
+            setWaterIntake(new.intake)
+            updateSettings(writeGoalRow = new.dailyGoal != old.dailyGoal) {
+                it.copy(
+                    waterGoalMl = new.dailyGoal,
+                    remindersEnabled = new.remindersEnabled,
+                    reminderIntervalMinutes = new.reminderIntervalMinutes
+                )
+            }
+        }
     }
 
+    fun addWaterIntake(amount: Int) = updateHydrationState { it.copy(intake = it.intake + amount) }
+
+    fun updateHydrationGoal(goalMl: Int) = updateHydrationState { it.copy(dailyGoal = goalMl) }
+
+    fun updateHydrationReminders(enabled: Boolean, intervalMinutes: Int) = updateHydrationState {
+        it.copy(remindersEnabled = enabled, reminderIntervalMinutes = intervalMinutes)
+    }
+
+    fun resetDailyHydration() = updateHydrationState { it.copy(intake = 0) }
+
+    /** Must hold [lock]. Increases are logged as a new entry; decreases rewrite today's logs. */
+    private fun setWaterIntake(intake: Int) {
+        val old = state.waterToday
+        if (intake == old) return
+        val day = today.value
+        val now = clock.millis()
+        waterGeneration++
+        set(state.copy(waterToday = intake))
+        if (intake > old) {
+            enqueue { waterDao.insert(WaterLogEntity(amountMl = intake - old, timestamp = now, day = day)) }
+        } else {
+            val log = if (intake > 0) WaterLogEntity(amountMl = intake, timestamp = now, day = day) else null
+            enqueue { waterDao.replaceDay(day, log) }
+        }
+    }
+
+    // ---- Profile / app ----
+
     fun updateProfile(profileData: ProfileData) {
-        profileFlow.value = profileData
-        preferencesManager.saveProfile(profileData)
+        synchronized(lock) {
+            val entity = profileData.toEntity()
+            set(state.copy(profile = entity))
+            enqueue { profileDao.upsert(entity) }
+        }
     }
 
     fun clearAllData() {
-        val onboarding = preferencesManager.isOnboardingComplete()
-        preferencesManager.clearAllData()
-        if (onboarding) {
-            preferencesManager.setOnboardingComplete(true)
+        synchronized(lock) {
+            val fresh = AppSettings(onboardingComplete = state.settings.onboardingComplete, migratedV2 = true)
+            waterGeneration++
+            set(State(settings = fresh))
+            enqueue {
+                habitDao.clear() // completions go via ON DELETE CASCADE
+                moodDao.clear()
+                waterDao.clear()
+                stepDao.clear()
+                goalDao.clear()
+                profileDao.clear()
+                settings.update { fresh }
+            }
         }
-        refreshAll()
     }
 
-    private fun handleStreaks() {
-        val habits = habitsFlow.value
-        if (habits.isEmpty() || habits.any { !it.completed }) {
-            return
-        }
-        val today = LocalDate.now()
-        val todayEpoch = today.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val lastCompletion = preferencesManager.getLastCompletionDate()
-        if (lastCompletion >= todayEpoch) {
-            return
-        }
-        val yesterdayEpoch = today.minusDays(1)
-            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val currentStreak = if (lastCompletion in yesterdayEpoch until todayEpoch) {
-            preferencesManager.getCurrentStreak() + 1
-        } else {
-            1
-        }
-        preferencesManager.setCurrentStreak(currentStreak)
-        val longest = preferencesManager.getLongestStreak()
-        if (currentStreak > longest) {
-            preferencesManager.setLongestStreak(currentStreak)
-        }
-        preferencesManager.setLastCompletionDate(todayEpoch)
-        recomputeStats()
+    fun isOnboardingComplete(): Boolean = state.settings.onboardingComplete
+
+    fun setOnboardingComplete(value: Boolean) = updateSettings { it.copy(onboardingComplete = value) }
+
+    /** No-op: habit completions are stored per day, so there is nothing to reset. Kept for callers. */
+    fun updateHabitsResetDate() = Unit
+
+    // ---- Steps ----
+
+    fun setStepCounterEnabled(enabled: Boolean) = updateSettings { it.copy(stepEnabled = enabled) }
+
+    fun setStepCounterGoal(goal: Int) {
+        val safeGoal = goal.coerceAtLeast(1000)
+        updateSettings(writeGoalRow = true) { it.copy(stepGoal = safeGoal) }
     }
 
-    private fun recomputeStats() {
-        val habits = habitsFlow.value
-        val hydration = hydrationFlow.value
-        val moodEntries = moodFlow.value
-        val steps = stepCounterFlow.value
-        val completedCount = habits.count { it.completed }
-        val total = habits.size
-        val currentStreak = preferencesManager.getCurrentStreak()
-        val longest = preferencesManager.getLongestStreak()
-        val averageMood = if (moodEntries.isEmpty()) {
-            0.0
-        } else {
-            val recentMoods = moodEntries.take(30)
-            val sum = recentMoods.sumOf { it.mood.score }
-            sum.toDouble() / recentMoods.size
+    fun setStepSensorType(type: StepSensorType) = updateSettings { it.copy(stepSensorType = type) }
+
+    fun resetTodaySteps() = updateSteps { day -> StepState(steps = 0, lastSensorTotal = 0f, day = day) }
+
+    fun applyStepCounterReading(totalSteps: Float) = updateSteps { day ->
+        val start = if (this.day < day) StepState(0, totalSteps, day) else this
+        val previousTotal = start.lastSensorTotal
+        val delta = when {
+            totalSteps < previousTotal -> 0
+            previousTotal == 0f -> 0
+            else -> (totalSteps - previousTotal).toInt()
         }
-        val hydrationPercentage = if (hydration.dailyGoal == 0) 0 else ((hydration.intake.toDouble() / hydration.dailyGoal.toDouble()) * 100).toInt()
-        
+        start.copy(steps = (start.steps + delta).coerceAtLeast(0), lastSensorTotal = totalSteps)
+    }
+
+    fun incrementStepDetector(count: Int) {
+        if (count <= 0) return
+        updateSteps { day ->
+            val start = if (this.day < day) copy(steps = 0, day = day) else this
+            start.copy(steps = (start.steps + count).coerceAtLeast(0))
+        }
+    }
+
+    private data class StepState(val steps: Int, val lastSensorTotal: Float, val day: Long)
+
+    private fun updateSteps(transform: StepState.(today: Long) -> StepState) {
+        synchronized(lock) {
+            val s = state
+            val current = StepState(s.stepsToday, s.settings.lastSensorTotal, s.settings.stepCounterDay)
+            val next = current.transform(currentDay())
+            if (next == current) return
+            val sensor: (AppSettings) -> AppSettings =
+                { it.copy(lastSensorTotal = next.lastSensorTotal, stepCounterDay = next.day) }
+            set(s.copy(stepsToday = next.steps, settings = sensor(s.settings)))
+            enqueue {
+                stepDao.upsert(StepDayEntity(next.day, next.steps))
+                settings.update(sensor)
+            }
+        }
+    }
+
+    // ---- Internals ----
+
+    /** [transform] must be pure: it is applied to memory now and to the store later. */
+    private fun updateSettings(writeGoalRow: Boolean = false, transform: (AppSettings) -> AppSettings) {
+        synchronized(lock) {
+            val next = transform(state.settings)
+            if (next == state.settings && !writeGoalRow) return
+            set(state.copy(settings = next))
+            val day = today.value
+            enqueue {
+                settings.update(transform)
+                if (writeGoalRow) goalDao.upsert(DailyGoalEntity(day, next.waterGoalMl, next.stepGoal))
+            }
+        }
+    }
+
+    private fun enqueue(write: suspend () -> Unit) {
+        writes.trySend(write)
+    }
+
+    /** Must hold [lock]. Replaces the state and republishes every public flow. */
+    private fun set(next: State) {
+        state = next
+        publish()
+    }
+
+    private fun publish() {
+        val s = state
+        val day = today.value
+        val doneToday = s.completions.filter { it.day == day }.map { it.habitId }.toSet()
+        val habits = s.habits.filter { it.isShownOn(day) }.map { it.toHabit(it.id in doneToday) }
+        val moods = s.moods.map { it.toMoodEntry() }
+        val hydration = HydrationState(
+            dailyGoal = s.settings.waterGoalMl,
+            intake = s.waterToday,
+            remindersEnabled = s.settings.remindersEnabled,
+            reminderIntervalMinutes = s.settings.reminderIntervalMinutes,
+            lastResetDate = startOfDayMillis(day)
+        )
+        val steps = StepCounterPreferences(
+            enabled = s.settings.stepEnabled,
+            dailyGoal = s.settings.stepGoal,
+            sensorType = s.settings.stepSensorType,
+            stepsToday = s.stepsToday,
+            lastSensorTotal = s.settings.lastSensorTotal,
+            lastResetDate = startOfDayMillis(s.settings.stepCounterDay)
+        )
+        val streak = streak(s, day)
+        val recentMoods = moods.take(30)
+        habitsFlow.value = habits
+        moodFlow.value = moods
+        moodPreferencesFlow.value = MoodPreferences(s.settings.moodViewMode, s.settings.moodInsightsDismissed)
+        hydrationFlow.value = hydration
+        profileFlow.value = s.profile.toProfileData()
+        stepCounterFlow.value = steps
         statsFlow.value = WellnessStats(
-            habitsCompletedToday = completedCount,
-            totalHabits = total,
-            currentStreak = currentStreak,
-            longestStreak = longest,
-            averageMoodScore = averageMood,
-            hydrationPercentage = hydrationPercentage.coerceIn(0, 100),
+            habitsCompletedToday = habits.count { it.completed },
+            totalHabits = habits.size,
+            currentStreak = streak.current,
+            longestStreak = streak.best,
+            averageMoodScore = if (recentMoods.isEmpty()) 0.0 else recentMoods.sumOf { it.mood.score }.toDouble() / recentMoods.size,
+            hydrationPercentage = if (hydration.dailyGoal == 0) 0
+            else (hydration.intake * 100 / hydration.dailyGoal).coerceIn(0, 100),
             stepsToday = steps.stepsToday,
             stepsGoal = steps.dailyGoal
         )
     }
 
-    fun setStepCounterEnabled(enabled: Boolean) {
-        updateStepCounter {
-            copy(enabled = enabled)
-        }
+    /** Perfect-day streak; cached because publish() runs on every step-sensor event. */
+    private fun streak(s: State, day: Long): StreakResult {
+        val legacy = AppSettings(
+            legacyPerfectBest = s.settings.legacyPerfectBest,
+            legacyPerfectCurrent = s.settings.legacyPerfectCurrent,
+            legacyPerfectLastDay = s.settings.legacyPerfectLastDay
+        )
+        val key = StreakKey(s.habits, s.completions, day, legacy)
+        if (key == streakKey) return streakCache
+        val from = s.completions.minOfOrNull { it.day }?.coerceAtMost(day) ?: day
+        val perfect = PerfectDays.perfectDays(s.habits, s.completions.toList(), from, day)
+        streakCache = PerfectDays.streak(
+            perfect, day, legacy.legacyPerfectCurrent, legacy.legacyPerfectLastDay, legacy.legacyPerfectBest
+        )
+        streakKey = key
+        return streakCache
     }
 
-    fun setStepCounterGoal(goal: Int) {
-        val safeGoal = goal.coerceAtLeast(1000)
-        updateStepCounter {
-            copy(dailyGoal = safeGoal)
-        }
-    }
+    private fun currentDay(): Long = LocalDate.now(clock).toEpochDay()
 
-    fun setStepSensorType(type: StepSensorType) {
-        updateStepCounter {
-            copy(sensorType = type)
-        }
-    }
+    private fun startOfDayMillis(day: Long): Long =
+        LocalDate.ofEpochDay(day).atStartOfDay(clock.zone).toInstant().toEpochMilli()
 
-    fun resetTodaySteps() {
-        val todayStart = startOfTodayMillis()
-        updateStepCounter {
-            copy(
-                stepsToday = 0,
-                lastSensorTotal = 0f,
-                lastResetDate = todayStart
-            )
-        }
-    }
-
-    fun applyStepCounterReading(totalSteps: Float) {
-        updateStepCounter {
-            val todayStart = startOfTodayMillis()
-            var updated = this
-            if (lastResetDate < todayStart) {
-                updated = updated.copy(
-                    stepsToday = 0,
-                    lastSensorTotal = totalSteps,
-                    lastResetDate = todayStart
-                )
-            }
-
-            val previousTotal = updated.lastSensorTotal
-            val delta = when {
-                totalSteps < previousTotal -> 0
-                previousTotal == 0f -> 0
-                else -> (totalSteps - previousTotal).toInt()
-            }
-
-            updated.copy(
-                stepsToday = (updated.stepsToday + delta).coerceAtLeast(0),
-                lastSensorTotal = totalSteps
-            )
-        }
-    }
-
-    fun incrementStepDetector(count: Int) {
-        if (count <= 0) return
-        updateStepCounter {
-            val todayStart = startOfTodayMillis()
-            val updated = if (lastResetDate < todayStart) {
-                copy(
-                    stepsToday = 0,
-                    lastResetDate = todayStart
-                )
-            } else this
-
-            updated.copy(stepsToday = (updated.stepsToday + count).coerceAtLeast(0))
-        }
-    }
-
-    private fun updateStepCounter(block: StepCounterPreferences.() -> StepCounterPreferences) {
-        val updated = synchronized(stepLock) {
-            val current = stepCounterFlow.value
-            val result = block(current)
-            stepCounterFlow.value = result
-            preferencesManager.saveStepCounterPreferences(result)
-            result
-        }
-        recomputeStats()
-    }
-
-    private fun startOfTodayMillis(): Long {
-        return LocalDate.now()
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-    }
-
-    fun isOnboardingComplete(): Boolean = preferencesManager.isOnboardingComplete()
-
-    fun setOnboardingComplete(value: Boolean) = preferencesManager.setOnboardingComplete(value)
-
-    fun updateHabitsResetDate() {
-        val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        preferencesManager.setHabitsResetDate(today)
-    }
-
-    // Hydration Management Methods
-    val hydrationState: StateFlow<HydrationState> = hydrationFlow.asStateFlow()
-
-    fun addWaterIntake(amount: Int) {
-        updateHydrationState { current ->
-            current.copy(intake = current.intake + amount)
-        }
-    }
-
-    fun updateHydrationGoal(goalMl: Int) {
-        updateHydrationState { current ->
-            current.copy(dailyGoal = goalMl)
-        }
-    }
-
-    fun updateHydrationReminders(enabled: Boolean, intervalMinutes: Int) {
-        updateHydrationState { current ->
-            current.copy(
-                remindersEnabled = enabled,
-                reminderIntervalMinutes = intervalMinutes
-            )
-        }
-    }
-
-    fun resetDailyHydration() {
-        updateHydrationState { current ->
-            current.copy(
-                intake = 0,
-                lastResetDate = System.currentTimeMillis()
-            )
-        }
+    private companion object {
+        const val TAG = "WellnessRepository"
     }
 }

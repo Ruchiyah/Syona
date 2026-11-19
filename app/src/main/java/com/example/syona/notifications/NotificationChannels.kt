@@ -15,9 +15,11 @@ object NotificationChannels {
             val hydration = NotificationChannel(
                 HYDRATION_CHANNEL_ID,
                 "Hydration Reminders",
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 description = "Stay hydrated with gentle nudges throughout your day."
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500, 200, 500)
             }
             manager.createNotificationChannel(hydration)
         }

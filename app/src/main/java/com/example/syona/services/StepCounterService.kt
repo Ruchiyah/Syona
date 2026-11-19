@@ -4,16 +4,21 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.Manifest
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.syona.MainActivity
 import com.example.syona.R
 import com.example.syona.SyonaApp
@@ -55,15 +60,34 @@ class StepCounterService : Service() {
         stepDetectorSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
 
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification(0, 0))
+        // A `health` foreground service requires ACTIVITY_RECOGNITION on Android 14+;
+        // without it startForeground() throws SecurityException (e.g. after a reboot or
+        // a sticky restart when the user has revoked the permission).
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // FOREGROUND_SERVICE_TYPE_HEALTH exists from API 34
+                startForeground(NOTIFICATION_ID, createNotification(0, 0), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH)
+            } else {
+                startForeground(NOTIFICATION_ID, createNotification(0, 0))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not enter foreground; stopping step counter", e)
+            stopSelf()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val repository = (application as? SyonaApp)?.repository
         val prefs = repository?.observeStepCounter()?.value
 
-        if (prefs != null && prefs.enabled) {
-            registerStepListener(prefs.sensorType)
+        if (prefs != null && prefs.enabled && hasActivityRecognitionPermission(this)) {
+            try {
+                registerStepListener(prefs.sensorType)
+                // Update notification immediately with current stats
+                updateNotification()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to register step sensor", e)
+            }
         } else {
             stopSelf()
         }
@@ -84,10 +108,14 @@ class StepCounterService : Service() {
 
         unregisterStepListener()
 
+        // Allow the sensor hub to batch events for up to MAX_REPORT_LATENCY_US. Each event
+        // persists the whole app state, so batching cuts wake-ups and disk writes while
+        // walking. Devices without a FIFO simply ignore the latency hint.
         val registered = sensorManager?.registerListener(
             stepSensorListener,
             sensor,
-            SensorManager.SENSOR_DELAY_NORMAL
+            SensorManager.SENSOR_DELAY_NORMAL,
+            MAX_REPORT_LATENCY_US
         ) ?: false
 
         if (registered) {
@@ -138,7 +166,7 @@ class StepCounterService : Service() {
 
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            NOTIFICATION_ID,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -168,15 +196,30 @@ class StepCounterService : Service() {
     }
 
     companion object {
-        private const val NOTIFICATION_ID = 1001
+        // Must differ from HydrationReminderWorker.NOTIFICATION_ID (1001), otherwise each step
+        // update replaces the hydration reminder and vice versa.
+        private const val NOTIFICATION_ID = 2001
+        private const val TAG = "StepCounterService"
+        private const val MAX_REPORT_LATENCY_US = 10_000_000 // 10 s
+
+        fun hasActivityRecognitionPermission(context: Context): Boolean =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) ==
+                PackageManager.PERMISSION_GRANTED
         private const val CHANNEL_ID = "step_counter_channel"
 
         fun start(context: Context) {
+            if (!hasActivityRecognitionPermission(context)) return
             val intent = Intent(context, StepCounterService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException (API 31+) when started from background
+                Log.w(TAG, "Step counter service start not allowed", e)
             }
         }
 

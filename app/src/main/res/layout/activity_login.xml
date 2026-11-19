@@ -20,7 +20,7 @@
             android:layout_marginTop="32dp"
             android:contentDescription="Star"
             android:src="@drawable/ic_star_twinkle"
-            android:tint="@android:color/white"
+            app:tint="@android:color/white"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -32,7 +32,7 @@
             android:layout_marginEnd="24dp"
             android:contentDescription="Star"
             android:src="@drawable/ic_star_twinkle"
-            android:tint="@android:color/white"
+            app:tint="@android:color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -67,7 +67,7 @@
                         android:contentDescription="App Icon"
                         android:padding="16dp"
                         android:src="@drawable/ic_star_twinkle"
-                        android:tint="@android:color/white" />
+                        app:tint="@android:color/white" />
 
                 </com.google.android.material.card.MaterialCardView>
 
@@ -246,7 +246,7 @@
             android:layout_marginBottom="32dp"
             android:contentDescription="Star"
             android:src="@drawable/ic_star_twinkle"
-            android:tint="@android:color/white"
+            app:tint="@android:color/white"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
 
@@ -258,7 +258,7 @@
             android:layout_marginBottom="80dp"
             android:contentDescription="Star"
             android:src="@drawable/ic_star_twinkle"
-            android:tint="@android:color/white"
+            app:tint="@android:color/white"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 

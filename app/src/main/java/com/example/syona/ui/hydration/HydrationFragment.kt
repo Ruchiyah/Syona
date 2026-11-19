@@ -18,7 +18,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import com.example.syona.R
-import com.example.syona.data.preferences.PreferencesManager
 import com.example.syona.data.repository.WellnessRepository
 import com.example.syona.databinding.FragmentHydrationBinding
 import com.example.syona.service.HydrationReminderManager
@@ -45,10 +44,16 @@ class HydrationFragment : Fragment() {
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
-        if (!isGranted) {
+        if (isGranted) {
+            // Reminders were enabled while permission was missing; schedule them now
+            if (_binding != null && binding.reminderSwitch.isChecked) {
+                updateReminderSettings(showToast = true)
+            }
+        } else {
             Toast.makeText(requireContext(), "Notification permission is required for reminders", Toast.LENGTH_LONG).show()
         }
     }
+    private val starAnimators = mutableListOf<ObjectAnimator>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -69,7 +74,8 @@ class HydrationFragment : Fragment() {
         setupObservers()
         setupClickListeners()
         setupStarAnimations()
-        requestNotificationPermission()
+        // Notification permission is requested once at first launch (MainActivity) and again
+        // only when the user turns reminders on — not on every visit to this tab.
     }
 
     override fun onResume() {
@@ -335,30 +341,6 @@ class HydrationFragment : Fragment() {
         }
     }
 
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    // Permission already granted
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    Toast.makeText(
-                        requireContext(),
-                        "Notification permission is needed for hydration reminders",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                else -> {
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }
-        }
-    }
-    
     private fun showCustomIntervalDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(
             android.R.layout.simple_list_item_1, null
@@ -479,10 +461,14 @@ class HydrationFragment : Fragment() {
         rotationAnimator.start()
         scaleXAnimator.start()
         scaleYAnimator.start()
+        starAnimators += listOf(rotationAnimator, scaleXAnimator, scaleYAnimator)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        // Infinite animators would otherwise keep running and hold the destroyed views
+        starAnimators.forEach { it.cancel() }
+        starAnimators.clear()
         _binding = null
     }
 }

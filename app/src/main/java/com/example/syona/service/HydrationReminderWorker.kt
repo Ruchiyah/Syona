@@ -1,8 +1,6 @@
 package com.example.syona.service
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -17,13 +15,15 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.syona.MainActivity
 import com.example.syona.R
-import com.example.syona.data.preferences.PreferencesManager
+import com.example.syona.SyonaApp
+import com.example.syona.notifications.NotificationChannels
 
 class HydrationReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val preferencesManager = PreferencesManager(applicationContext)
-        val hydrationState = preferencesManager.getHydrationState()
+        val app = applicationContext as SyonaApp
+        app.awaitStartup() // may run before Application.onCreate finishes (R9)
+        val hydrationState = app.repository.hydrationSnapshot()
 
         // Check if reminders are enabled
         if (!hydrationState.remindersEnabled) {
@@ -43,25 +43,9 @@ class HydrationReminderWorker(context: Context, params: WorkerParameters) : Coro
         }
 
         // Goal not met, send reminder
-        createNotificationChannel()
+        NotificationChannels.createAll(applicationContext)
         showHydrationReminder()
         return Result.success()
-    }
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Hydration Reminders"
-            val descriptionText = "Reminders to drink water"
-            val importance = NotificationManager.IMPORTANCE_HIGH
-            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
-                description = descriptionText
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500, 200, 500)
-            }
-            val notificationManager: NotificationManager =
-                applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
     }
 
     private fun showHydrationReminder() {
@@ -70,7 +54,7 @@ class HydrationReminderWorker(context: Context, params: WorkerParameters) : Coro
             putExtra("navigate_to", "hydration")
         }
         val pendingIntent: PendingIntent = PendingIntent.getActivity(
-            applicationContext, 0, intent,
+            applicationContext, NOTIFICATION_ID, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 

@@ -22,8 +22,6 @@ class MoodEntryBottomSheet : BottomSheetDialogFragment() {
     private var _binding: SheetMoodEntryBinding? = null
     private val binding get() = _binding!!
 
-    var onSave: ((MoodType, String?) -> Unit)? = null
-
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val dialog = super.onCreateDialog(savedInstanceState) as BottomSheetDialog
 
@@ -65,7 +63,14 @@ class MoodEntryBottomSheet : BottomSheetDialogFragment() {
         binding.saveMoodButton.setOnClickListener {
             val selected = adapter.getSelected() ?: return@setOnClickListener
             val note = binding.moodNoteEdit.text?.toString()?.takeIf { it.isNotBlank() }
-            onSave?.invoke(selected, note)
+            // Fragment Result API survives configuration changes (a lambda field would be lost)
+            parentFragmentManager.setFragmentResult(
+                REQUEST_KEY,
+                Bundle().apply {
+                    putString(RESULT_MOOD, selected.name)
+                    putString(RESULT_NOTE, note)
+                }
+            )
             dismiss()
         }
         applyTitleGradient()
@@ -103,5 +108,11 @@ class MoodEntryBottomSheet : BottomSheetDialogFragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        const val REQUEST_KEY = "mood_entry_result"
+        const val RESULT_MOOD = "result_mood"
+        const val RESULT_NOTE = "result_note"
     }
 }

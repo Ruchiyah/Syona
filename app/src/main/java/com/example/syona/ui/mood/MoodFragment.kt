@@ -75,7 +75,9 @@ class MoodFragment : Fragment() {
             adapter = moodAdapter
             itemAnimator = null
         }
-        calendarAdapter = MoodCalendarAdapter()
+        calendarAdapter = MoodCalendarAdapter { date ->
+            viewModel.selectDate(date)
+        }
         binding.calendarRecycler.apply {
             layoutManager = GridLayoutManager(requireContext(), 7)
             adapter = calendarAdapter
@@ -101,24 +103,56 @@ class MoodFragment : Fragment() {
                 updateToggleStyles(false)
                 updateContentVisibility()
                 viewModel.selectViewMode(MoodViewMode.CALENDAR)
-                updateCalendar(viewModel.moodEntries.value)
+                updateCalendar(viewModel.moodEntries.value, viewModel.selectedDate.value)
             }
         }
     }
 
     private fun setupActions() {
         binding.addMoodButton.setOnClickListener { openMoodSheet() }
+        parentFragmentManager.setFragmentResultListener(
+            MoodEntryBottomSheet.REQUEST_KEY, viewLifecycleOwner
+        ) { _, bundle ->
+            val mood = bundle.getString(MoodEntryBottomSheet.RESULT_MOOD)
+                ?.let { name -> runCatching { com.example.syona.data.model.MoodType.valueOf(name) }.getOrNull() }
+                ?: return@setFragmentResultListener
+            // The screen may have stayed open past midnight without pausing
+            viewModel.onDayMaybeChanged()
+            viewModel.addMood(mood, bundle.getString(MoodEntryBottomSheet.RESULT_NOTE))
+        }
         binding.addFirstMoodButton.setOnClickListener { openMoodSheet() }
+        binding.moodInsightsCardContainer.setOnClickListener {
+            MoodChartDialog().show(parentFragmentManager, "MoodChartDialog")
+        }
     }
 
     private fun observeMoods() {
+        // Observe filtered entries for the list
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.filteredMoodEntries.collectLatest { entries ->
+                moodAdapter.submitList(entries)
+                // Only show empty state if we are in list view and there are no entries for this day
+                // But we also need to consider if there are ANY entries at all for the "Start logging" message
+                // For now, let's just show empty state if filtered list is empty
+                updateEmptyState(entries) 
+            }
+        }
+
+        // Observe all entries for calendar and insights
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.moodEntries.collectLatest { entries ->
-                moodAdapter.submitList(entries)
-                updateEmptyState(entries)
                 updateInsights(entries)
                 if (!showingList) {
-                    updateCalendar(entries)
+                    updateCalendar(entries, viewModel.selectedDate.value)
+                }
+            }
+        }
+
+        // Observe selected date
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.selectedDate.collectLatest { date ->
+                if (!showingList) {
+                    updateCalendar(viewModel.moodEntries.value, date)
                 }
             }
         }
@@ -132,7 +166,7 @@ class MoodFragment : Fragment() {
                 updateToggleStyles(showingList)
                 updateContentVisibility()
                 if (!showingList) {
-                    updateCalendar(viewModel.moodEntries.value)
+                    updateCalendar(viewModel.moodEntries.value, viewModel.selectedDate.value)
                 }
             }
         }
@@ -141,14 +175,23 @@ class MoodFragment : Fragment() {
     private fun updateEmptyState(entries: List<MoodEntry>) {
         val hasEntries = entries.isNotEmpty()
         binding.emptyMood.isVisible = !hasEntries
-        binding.toggleContainer.isVisible = true // Always show toggle for demo
+        binding.toggleContainer.isVisible = true 
         binding.moodInsightsCardContainer.isVisible = !insightsDismissed
         updateContentVisibility(hasEntries)
     }
 
     private fun updateContentVisibility(hasEntries: Boolean = true) {
-        binding.moodRecycler.isVisible = hasEntries && showingList
-        binding.calendarRecycler.isVisible = hasEntries && !showingList
+        // If showing list, visibility depends on hasEntries (filtered).
+        // If showing calendar, always show calendar (it handles its own empty state or just shows days).
+        if (showingList) {
+            binding.moodRecycler.isVisible = hasEntries
+            binding.calendarRecycler.isVisible = false
+            binding.emptyMood.isVisible = !hasEntries
+        } else {
+            binding.moodRecycler.isVisible = false
+            binding.calendarRecycler.isVisible = true
+            binding.emptyMood.isVisible = false
+        }
     }
 
     private fun updateInsights(entries: List<MoodEntry>) {
@@ -190,27 +233,38 @@ class MoodFragment : Fragment() {
         binding.moodInsightsPercent.requestLayout()
     }
 
-    private fun updateCalendar(entries: List<MoodEntry>) {
+    private fun updateCalendar(entries: List<MoodEntry>, selectedDate: LocalDate) {
         val today = LocalDate.now()
-        val firstDayOfMonth = today.withDayOfMonth(1)
-        val daysInMonth = today.lengthOfMonth()
-        val startOffset = firstDayOfMonth.dayOfWeek.value % 7
+        // We want to show the month of the selected date, or maybe just the current month?
+        // The requirement implies clicking a day in the calendar. Usually calendars show the current month.
+        // Let's stick to showing the month of the selectedDate (so if user selects a day, we stay in that month).
+        // Or if selectedDate is today, we show this month.
+        
+        val displayMonth = selectedDate.withDayOfMonth(1)
+        val daysInMonth = displayMonth.lengthOfMonth()
+        val startOffset = displayMonth.dayOfWeek.value % 7
+        
         val items = mutableListOf<MoodCalendarItem>()
-        repeat(startOffset) { items.add(MoodCalendarItem(null, null, null)) }
+        repeat(startOffset) { items.add(MoodCalendarItem(null, null, null, null, false)) }
+        
         val grouped = entries.groupBy { Instant.ofEpochMilli(it.timestamp).atZone(ZoneId.systemDefault()).toLocalDate() }
+        
         for (day in 1..daysInMonth) {
-            val date = firstDayOfMonth.withDayOfMonth(day)
+            val date = displayMonth.withDayOfMonth(day)
             val dailyEntries = grouped[date]
             val latest = dailyEntries?.maxByOrNull { it.timestamp }
             val color = latest?.let { moodEntry ->
                 val base = android.graphics.Color.parseColor(moodEntry.mood.colorHex)
                 androidx.core.graphics.ColorUtils.setAlphaComponent(base, 68)
             }
+            
             items.add(
                 MoodCalendarItem(
                     dayNumber = day,
                     emoji = latest?.mood?.emoji,
-                    backgroundColor = color
+                    backgroundColor = color,
+                    date = date,
+                    isSelected = date == selectedDate
                 )
             )
         }
@@ -237,11 +291,7 @@ class MoodFragment : Fragment() {
     }
 
     private fun openMoodSheet() {
-        val sheet = MoodEntryBottomSheet()
-        sheet.onSave = { moodType, note ->
-            viewModel.addMood(moodType, note)
-        }
-        sheet.show(parentFragmentManager, "MoodEntry")
+        MoodEntryBottomSheet().show(parentFragmentManager, "MoodEntry")
     }
 
     private fun shareMoodEntry(entry: MoodEntry) {
@@ -297,6 +347,11 @@ class MoodFragment : Fragment() {
         starAnimators.add(rotationAnimator)
         starAnimators.add(scaleXAnimator)
         starAnimators.add(scaleYAnimator)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.onDayMaybeChanged()
     }
 
     override fun onDestroyView() {

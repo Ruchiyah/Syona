@@ -13,7 +13,6 @@ import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
@@ -46,7 +45,6 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
-import java.io.InputStream
 
 class ProfileFragment : Fragment() {
 
@@ -57,22 +55,21 @@ class ProfileFragment : Fragment() {
         ProfileViewModelFactory((requireActivity().application as SyonaApp).repository)
     }
     
-    private var tempImageUri: Uri? = null
     private var placeholderPadding: Int = 0
     private var sensorManager: SensorManager? = null
     private var stepCounterSensor: Sensor? = null
     private var stepDetectorSensor: Sensor? = null
     private var latestStepPrefs: StepCounterPreferences? = null
     private var pendingEnableAfterPermission = false
+    private val starAnimators = mutableListOf<ObjectAnimator>()
     
     // Image picker launcher
     private val imagePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { 
-            tempImageUri = it
-            cropImage(it)
-        }
+        // Note: the previous "com.android.camera.action.CROP" path never ran (no FileProvider was
+        // declared, so it always fell back here). The image is centre-cropped to a square below.
+        uri?.let { handleImageSelection(it) }
     }
 
     private val activityRecognitionPermissionLauncher = registerForActivityResult(
@@ -83,28 +80,12 @@ class ProfileFragment : Fragment() {
             startStepListeningIfNeeded()
         } else {
             if (latestStepPrefs?.enabled == true) {
-                Toast.makeText(requireContext(), getString(R.string.step_settings_permission_needed), Toast.LENGTH_LONG).show()
+                // Permission denied but feature was enabled.
+                // Show explanation and guide to settings if needed
+                showPermissionDeniedDialog()
                 viewModel.setStepCounterEnabled(false)
             }
             pendingEnableAfterPermission = false
-        }
-    }
-
-    // Image crop launcher
-    private val cropImageLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
-            // The cropped image is saved to tempImageUri (from EXTRA_OUTPUT)
-            tempImageUri?.let { croppedUri ->
-                handleImageSelection(croppedUri)
-                tempImageUri = null // Clear after use
-            } ?: run {
-                Toast.makeText(requireContext(), "Failed to get cropped image", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            // User cancelled crop
-            tempImageUri = null
         }
     }
 
@@ -136,6 +117,113 @@ class ProfileFragment : Fragment() {
         if (stepDetectorSensor == null) {
             stepDetectorSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
         }
+        
+        setupMoodChart()
+    }
+
+    private fun setupMoodChart() {
+        val chart = binding.moodChart
+        val tabs = binding.moodChartTabs
+
+        // Basic Chart Setup
+        chart.description.isEnabled = false
+        chart.setTouchEnabled(true)
+        chart.isDragEnabled = true
+        chart.setScaleEnabled(false)
+        chart.setPinchZoom(false)
+        chart.setDrawGridBackground(false)
+        chart.legend.isEnabled = false
+        
+        // Axis Setup
+        val xAxis = chart.xAxis
+        xAxis.position = com.github.mikephil.charting.components.XAxis.XAxisPosition.BOTTOM
+        xAxis.setDrawGridLines(false)
+        xAxis.textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+        xAxis.granularity = 1f
+
+        val leftAxis = chart.axisLeft
+        leftAxis.setDrawGridLines(true)
+        leftAxis.gridColor = ContextCompat.getColor(requireContext(), R.color.light_gray)
+        leftAxis.axisMinimum = 0f
+        leftAxis.axisMaximum = 5f
+        leftAxis.setLabelCount(6, true)
+        leftAxis.textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+
+        chart.axisRight.isEnabled = false
+
+        // Initial Load (Days)
+        updateChartData("Days")
+
+        // Tab Listener
+        tabs.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
+                tab?.text?.toString()?.let { updateChartData(it) }
+            }
+            override fun onTabUnselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+            override fun onTabReselected(tab: com.google.android.material.tabs.TabLayout.Tab?) {}
+        })
+    }
+
+    private fun updateChartData(range: String) {
+        val dataPoints = viewModel.getMoodDataForRange(range)
+        val chart = binding.moodChart
+
+        if (dataPoints.isEmpty()) {
+            chart.clear()
+            chart.setNoDataText("No mood data for this period")
+            return
+        }
+
+        val entries = dataPoints.mapIndexed { index, pair ->
+            com.github.mikephil.charting.data.Entry(index.toFloat(), pair.second, pair.first)
+        }
+
+        val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, "Mood")
+        dataSet.mode = com.github.mikephil.charting.data.LineDataSet.Mode.CUBIC_BEZIER
+        dataSet.cubicIntensity = 0.2f
+        dataSet.setDrawFilled(true)
+        dataSet.setDrawCircles(true)
+        dataSet.lineWidth = 3f
+        dataSet.circleRadius = 5f
+        dataSet.setCircleColor(ContextCompat.getColor(requireContext(), R.color.color_gradient_end))
+        dataSet.highLightColor = ContextCompat.getColor(requireContext(), R.color.color_gradient_start)
+        dataSet.color = ContextCompat.getColor(requireContext(), R.color.color_gradient_end)
+        dataSet.fillColor = ContextCompat.getColor(requireContext(), R.color.color_gradient_start)
+        dataSet.fillAlpha = 50
+        dataSet.setDrawHorizontalHighlightIndicator(false)
+        
+        // Custom MarkerView could be added here for better touch feedback
+
+        val lineData = com.github.mikephil.charting.data.LineData(dataSet)
+        lineData.setDrawValues(false)
+        chart.data = lineData
+
+        // X-Axis Formatter
+        val xAxis = chart.xAxis
+        // Show all labels for Days, let chart decide for Weeks/Months but try to show up to 12
+        val labelCount = if (range == "Days") dataPoints.size else Math.min(dataPoints.size, 12)
+        xAxis.setLabelCount(labelCount, range == "Days") // force=true for Days
+        
+        xAxis.valueFormatter = object : com.github.mikephil.charting.formatter.ValueFormatter() {
+            override fun getFormattedValue(value: Float): String {
+                val index = value.toInt()
+                if (index >= 0 && index < dataPoints.size) {
+                    val timestamp = dataPoints[index].first
+                    val date = java.util.Date(timestamp)
+                    val format = when (range) {
+                        "Days" -> java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
+                        "Weeks" -> java.text.SimpleDateFormat("dd MMM", java.util.Locale.getDefault())
+                        "Months" -> java.text.SimpleDateFormat("MMM", java.util.Locale.getDefault())
+                        else -> java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+                    }
+                    return format.format(date)
+                }
+                return ""
+            }
+        }
+
+        chart.animateXY(1000, 1000)
+        chart.invalidate()
     }
 
     private fun setupStarAnimations() {
@@ -173,6 +261,7 @@ class ProfileFragment : Fragment() {
         rotationAnimator.start()
         scaleXAnimator.start()
         scaleYAnimator.start()
+        starAnimators += listOf(rotationAnimator, scaleXAnimator, scaleYAnimator)
     }
 
     private fun setupObservers() {
@@ -198,6 +287,14 @@ class ProfileFragment : Fragment() {
                 } else {
                     stopStepListening()
                 }
+            }
+        }
+
+        // Observe mood entries for chart updates
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.moodEntries.collect {
+                val currentTab = binding.moodChartTabs.getTabAt(binding.moodChartTabs.selectedTabPosition)?.text?.toString() ?: "Days"
+                updateChartData(currentTab)
             }
         }
     }
@@ -529,6 +626,25 @@ class ProfileFragment : Fragment() {
             .create()
 
         photoButton.setOnClickListener {
+            // Save current state before changing photo
+            val name = nameInput.text.toString().trim()
+            val age = ageInput.text.toString().toIntOrNull()
+            val gender = when {
+                maleRadio.isChecked -> "Male"
+                femaleRadio.isChecked -> "Female"
+                otherRadio.isChecked -> "Other"
+                else -> ""
+            }
+            val goal = goalSpinner.selectedItem.toString()
+
+            viewModel.updateProfile(
+                name = name,
+                age = age,
+                gender = gender,
+                wellnessGoal = goal,
+                photoUri = currentProfile.photoUri
+            )
+
             dialog.dismiss()
             showImagePickerDialog()
         }
@@ -573,7 +689,7 @@ class ProfileFragment : Fragment() {
             .setMessage("""
                 Syona Wellness App Privacy Policy
                 
-                Your privacy is important to us. This app stores your data locally on your device using SharedPreferences.
+                Your privacy is important to us. This app stores your data locally on your device, in the app's private storage.
                 
                 Data Collection:
                 • Personal information (name, age, gender)
@@ -588,8 +704,8 @@ class ProfileFragment : Fragment() {
                 • Data is used solely for app functionality
                 
                 Data Security:
-                • Data is encrypted using Android's built-in security
-                • Only you have access to your data
+                • Data is kept in app-private storage that other apps cannot read
+                • Data may be included in your device's Android backup if backup is enabled
                 • You can clear all data at any time
                 
                 For questions, please contact: support@syona.app
@@ -656,12 +772,33 @@ class ProfileFragment : Fragment() {
             .setPositiveButton("Clear All") { dialog, _ ->
                 val repository = (requireActivity().application as SyonaApp).repository
                 repository.clearAllData()
+                // Clearing data disables these features; also stop the work they had scheduled
+                com.example.syona.service.HydrationReminderManager(requireContext()).cancelReminders()
+                StepCounterService.stop(requireContext())
                 Toast.makeText(requireContext(), "All data cleared successfully", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel") { dialog, _ ->
                 dialog.dismiss()
             }
+            .show()
+    }
+
+    private fun showPermissionDeniedDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Permission Required")
+            .setMessage("Activity Recognition permission is required to count your steps. Please enable it in Settings.")
+            .setPositiveButton("Settings") { _, _ ->
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", requireContext().packageName, null)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "Could not open settings", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
     
@@ -678,54 +815,10 @@ class ProfileFragment : Fragment() {
             .show()
     }
     
-    private fun cropImage(sourceUri: Uri) {
-        try {
-            // Check if crop intent is available
-            val cropIntent = Intent("com.android.camera.action.CROP").apply {
-                setDataAndType(sourceUri, "image/*")
-                putExtra("crop", "true")
-                putExtra("aspectX", 1) // Square crop
-                putExtra("aspectY", 1)
-                putExtra("outputX", 400)
-                putExtra("outputY", 400)
-                putExtra("return-data", false)
-                putExtra("scale", true)
-                putExtra("scaleUpIfNeeded", true)
-                putExtra(MediaStore.EXTRA_OUTPUT, createTempImageUri())
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            }
-            
-            // Check if any app can handle the crop intent
-            val packageManager = requireContext().packageManager
-            val canCrop = cropIntent.resolveActivity(packageManager) != null
-            
-            if (canCrop) {
-                cropImageLauncher.launch(cropIntent)
-            } else {
-                handleImageSelection(sourceUri)
-            }
-        } catch (e: Exception) {
-            // If crop not available, use image directly
-            handleImageSelection(sourceUri)
-        }
-    }
-    
-    private fun createTempImageUri(): Uri {
-        val tempFile = java.io.File(requireContext().cacheDir, "cropped_profile_${System.currentTimeMillis()}.jpg")
-        return androidx.core.content.FileProvider.getUriForFile(
-            requireContext(),
-            "${requireContext().packageName}.fileprovider",
-            tempFile
-        ).also { tempImageUri = it }
-    }
-    
     private fun handleImageSelection(uri: Uri) {
         try {
-            val inputStream: InputStream? = requireContext().contentResolver.openInputStream(uri)
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
-            
+            val bitmap = decodeSampledBitmap(uri, MAX_DECODE_SIZE_PX)
+
             if (bitmap == null) {
                 showProfilePlaceholder()
                 return
@@ -757,10 +850,30 @@ class ProfileFragment : Fragment() {
             
             Toast.makeText(requireContext(), "Photo updated successfully!", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            e.printStackTrace()
             showProfilePlaceholder()
             Toast.makeText(requireContext(), "Failed to load image: ${e.message}", Toast.LENGTH_SHORT).show()
+        } catch (e: OutOfMemoryError) {
+            showProfilePlaceholder()
+            Toast.makeText(requireContext(), "Image is too large to load", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Decodes [uri] down-sampled so neither side greatly exceeds [maxSize] px. Decoding a modern
+     * camera photo at full resolution (e.g. 48 MP ≈ 190 MB ARGB) would throw OutOfMemoryError.
+     */
+    private fun decodeSampledBitmap(uri: Uri, maxSize: Int): Bitmap? {
+        val resolver = requireContext().contentResolver
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sampleSize = 1
+        while (bounds.outWidth / (sampleSize * 2) >= maxSize && bounds.outHeight / (sampleSize * 2) >= maxSize) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        return resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
     }
     
     private fun removeProfilePhoto() {
@@ -875,7 +988,14 @@ class ProfileFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        // Infinite animators would otherwise keep running and hold the destroyed views
+        starAnimators.forEach { it.cancel() }
+        starAnimators.clear()
         _binding = null
         // Don't stop the service here - it should continue running in background
+    }
+
+    companion object {
+        private const val MAX_DECODE_SIZE_PX = 800
     }
 }

@@ -7,7 +7,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.syona.R
 import com.example.syona.databinding.ItemMoodCalendarDayBinding
 
-class MoodCalendarAdapter : RecyclerView.Adapter<MoodCalendarAdapter.CalendarViewHolder>() {
+class MoodCalendarAdapter(
+    private val onDateSelected: (java.time.LocalDate) -> Unit
+) : RecyclerView.Adapter<MoodCalendarAdapter.CalendarViewHolder>() {
 
     private val items = mutableListOf<MoodCalendarItem>()
 
@@ -37,18 +39,33 @@ class MoodCalendarAdapter : RecyclerView.Adapter<MoodCalendarAdapter.CalendarVie
                 binding.calendarCell.foreground = null
                 binding.calendarCell.setBackgroundResource(0)
                 binding.root.visibility = View.INVISIBLE
+                binding.root.setOnClickListener(null)
             } else {
                 binding.root.visibility = View.VISIBLE
                 binding.dayNumber.text = item.dayNumber.toString()
                 binding.dayEmoji.text = item.emoji.orEmpty()
-                val backgroundRes = if (item.backgroundColor != null) {
-                    R.drawable.bg_calendar_day_selected
-                } else {
-                    R.drawable.bg_calendar_day
+                
+                val backgroundRes = when {
+                    item.isSelected -> R.drawable.bg_calendar_day_selected
+                    item.backgroundColor != null -> R.drawable.bg_calendar_day_filled
+                    else -> R.drawable.bg_calendar_day
                 }
+                
                 binding.calendarCell.setBackgroundResource(backgroundRes)
+                
+                // Apply color tint if it's a filled day but not selected (to show mood color)
+                if (!item.isSelected && item.backgroundColor != null) {
+                    binding.calendarCell.background.setTint(item.backgroundColor)
+                } else {
+                    binding.calendarCell.background.setTintList(null)
+                }
+
                 val emojiVisible = !item.emoji.isNullOrEmpty()
                 binding.dayEmoji.visibility = if (emojiVisible) View.VISIBLE else View.GONE
+                
+                binding.root.setOnClickListener {
+                    item.date?.let { date -> onDateSelected(date) }
+                }
             }
         }
     }
@@ -57,5 +74,7 @@ class MoodCalendarAdapter : RecyclerView.Adapter<MoodCalendarAdapter.CalendarVie
 data class MoodCalendarItem(
     val dayNumber: Int?,
     val emoji: String?,
-    val backgroundColor: Int?
+    val backgroundColor: Int?,
+    val date: java.time.LocalDate?,
+    val isSelected: Boolean = false
 )

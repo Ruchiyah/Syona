@@ -53,10 +53,10 @@ class WellnessRepository(private val preferencesManager: PreferencesManager) {
             preferencesManager.saveHabits(resetHabits)
             preferencesManager.setHabitsResetDate(todayStart)
             // Filter habits by frequency for today
-            habitsFlow.value = resetHabits.filter { it.frequency.shouldShowToday() }
+            habitsFlow.value = resetHabits.filter { it.frequency.shouldShowToday(it.customDays) }
         } else {
             // Filter habits by frequency for today
-            habitsFlow.value = allHabits.filter { it.frequency.shouldShowToday() }
+            habitsFlow.value = allHabits.filter { it.frequency.shouldShowToday(it.customDays) }
         }
     }
 
@@ -112,13 +112,14 @@ class WellnessRepository(private val preferencesManager: PreferencesManager) {
 
     fun observeStepCounter(): StateFlow<StepCounterPreferences> = stepCounterFlow.asStateFlow()
 
-    fun addHabit(name: String, icon: HabitIcon, frequency: String, notes: String?) {
+    fun addHabit(name: String, icon: HabitIcon, frequency: String, customDays: List<Int>?, notes: String?) {
         val current = habitsFlow.value.toMutableList()
         val order = current.size
         val habit = Habit(
             name = name,
             icon = icon,
             frequency = com.example.syona.data.model.HabitFrequency.fromDisplayName(frequency),
+            customDays = customDays,
             order = order,
             notes = notes
         )
@@ -160,8 +161,17 @@ class WellnessRepository(private val preferencesManager: PreferencesManager) {
     }
 
     fun deleteHabit(habitId: Long) {
-        val current = habitsFlow.value.filterNot { it.id == habitId }
-        persistHabits(current.mapIndexed { index, habit -> habit.copy(order = index) })
+        val allStoredHabits = preferencesManager.getHabits()
+        val updatedHabits = allStoredHabits.filterNot { it.id == habitId }
+            .mapIndexed { index, habit -> habit.copy(order = index) }
+        
+        preferencesManager.saveHabits(updatedHabits)
+        
+        habitsFlow.value = updatedHabits
+            .filter { it.frequency.shouldShowToday(it.customDays) }
+            .sortedBy { it.order }
+            
+        recomputeStats()
     }
 
     private fun persistHabits(habits: List<Habit>) {
@@ -189,7 +199,7 @@ class WellnessRepository(private val preferencesManager: PreferencesManager) {
 
         // Only show habits that should be displayed today
         habitsFlow.value = mergedHabits
-            .filter { it.frequency.shouldShowToday() }
+            .filter { it.frequency.shouldShowToday(it.customDays) }
             .sortedBy { it.order }
 
         recomputeStats()

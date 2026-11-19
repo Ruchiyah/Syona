@@ -23,11 +23,15 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
     private val binding get() = _binding!!
 
     private var habit: Habit? = null
-    var onSave: ((Habit) -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        habit = arguments?.getParcelable(ARG_HABIT)
+        habit = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            arguments?.getParcelable(ARG_HABIT, Habit::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            arguments?.getParcelable(ARG_HABIT)
+        }
     }
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
@@ -77,9 +81,14 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
             setHasFixedSize(true)
         }
 
-        val frequencies = resources.getStringArray(R.array.habit_frequencies)
+        val frequencies = HabitFrequency.values().map { it.displayName }
         val frequencyAdapter = ArrayAdapter(context, android.R.layout.simple_list_item_1, frequencies)
         binding.frequencyAutoComplete.setAdapter(frequencyAdapter)
+        
+        binding.frequencyAutoComplete.setOnItemClickListener { _, _, position, _ ->
+            val selected = HabitFrequency.values()[position]
+            binding.customDaysContainer.visibility = if (selected == HabitFrequency.CUSTOM) View.VISIBLE else View.GONE
+        }
 
         if (habit != null) {
             binding.titleText.setText(R.string.label_edit_habit)
@@ -87,6 +96,21 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
             binding.frequencyAutoComplete.setText(habit?.frequency?.displayName, false)
             binding.notesEditText.setText(habit?.notes)
             binding.saveButton.setText(R.string.label_save)
+            
+            if (habit?.frequency == HabitFrequency.CUSTOM) {
+                binding.customDaysContainer.visibility = View.VISIBLE
+                habit?.customDays?.forEach { day ->
+                    when (day) {
+                        java.util.Calendar.SUNDAY -> binding.cbSun.isChecked = true
+                        java.util.Calendar.MONDAY -> binding.cbMon.isChecked = true
+                        java.util.Calendar.TUESDAY -> binding.cbTue.isChecked = true
+                        java.util.Calendar.WEDNESDAY -> binding.cbWed.isChecked = true
+                        java.util.Calendar.THURSDAY -> binding.cbThu.isChecked = true
+                        java.util.Calendar.FRIDAY -> binding.cbFri.isChecked = true
+                        java.util.Calendar.SATURDAY -> binding.cbSat.isChecked = true
+                    }
+                }
+            }
         } else {
             binding.titleText.setText(R.string.title_add_new_habit)
             binding.frequencyAutoComplete.setText(frequencies.first(), false)
@@ -102,20 +126,39 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
             }
             binding.nameInputLayout.error = null
             val frequency = HabitFrequency.fromDisplayName(binding.frequencyAutoComplete.text?.toString())
+            
+            val customDays = if (frequency == HabitFrequency.CUSTOM) {
+                val days = mutableListOf<Int>()
+                if (binding.cbSun.isChecked) days.add(java.util.Calendar.SUNDAY)
+                if (binding.cbMon.isChecked) days.add(java.util.Calendar.MONDAY)
+                if (binding.cbTue.isChecked) days.add(java.util.Calendar.TUESDAY)
+                if (binding.cbWed.isChecked) days.add(java.util.Calendar.WEDNESDAY)
+                if (binding.cbThu.isChecked) days.add(java.util.Calendar.THURSDAY)
+                if (binding.cbFri.isChecked) days.add(java.util.Calendar.FRIDAY)
+                if (binding.cbSat.isChecked) days.add(java.util.Calendar.SATURDAY)
+                days
+            } else null
+
             val selectedIcon = iconAdapter.getSelected()
             val notes = binding.notesEditText.text?.toString()?.takeIf { it.isNotBlank() }
             val updatedHabit = habit?.copy(
                 name = name,
                 frequency = frequency,
+                customDays = customDays,
                 icon = selectedIcon,
                 notes = notes
             ) ?: Habit(
                 name = name,
                 frequency = frequency,
+                customDays = customDays,
                 icon = selectedIcon,
                 notes = notes
             )
-            onSave?.invoke(updatedHabit)
+            // Fragment Result API survives configuration changes (a lambda field would be lost)
+            parentFragmentManager.setFragmentResult(
+                REQUEST_KEY,
+                Bundle().apply { putParcelable(RESULT_HABIT, updatedHabit) }
+            )
             dismiss()
         }
     }
@@ -127,6 +170,8 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
 
     companion object {
         private const val ARG_HABIT = "arg_habit"
+        const val REQUEST_KEY = "habit_form_result"
+        const val RESULT_HABIT = "result_habit"
 
         fun newInstance(habit: Habit? = null): HabitFormBottomSheet {
             val fragment = HabitFormBottomSheet()

@@ -18,6 +18,7 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
     private val repository by lazy { (application as SyonaApp).repository }
+    private val starAnimators = mutableListOf<ObjectAnimator>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +53,7 @@ class LoginActivity : AppCompatActivity() {
             interpolator = LinearInterpolator()
         }
         rotation.start()
+        starAnimators += rotation
     }
 
     private fun setupWellnessGoalSpinner() {
@@ -137,5 +139,12 @@ class LoginActivity : AppCompatActivity() {
 
         Toast.makeText(this, "Welcome, $name! 👋", Toast.LENGTH_SHORT).show()
         return true
+    }
+
+    override fun onDestroy() {
+        // Infinite animators would otherwise outlive (and leak) this activity
+        starAnimators.forEach { it.cancel() }
+        starAnimators.clear()
+        super.onDestroy()
     }
 }

@@ -19,7 +19,7 @@ class HabitsViewModel(private val repository: WellnessRepository) : ViewModel() 
     fun saveHabit(habit: Habit) {
         val existing = habits.value.firstOrNull { it.id == habit.id }
         if (existing == null) {
-            repository.addHabit(habit.name, habit.icon, habit.frequency.displayName, habit.notes)
+            repository.addHabit(habit.name, habit.icon, habit.frequency.displayName, habit.customDays, habit.notes)
         } else {
             repository.updateHabit(habit)
         }

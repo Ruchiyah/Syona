@@ -49,6 +49,17 @@ class HabitsFragment : Fragment() {
         setupProgressBar()
         observeState()
         binding.addHabitButton.setOnClickListener { showHabitForm(null) }
+        parentFragmentManager.setFragmentResultListener(
+            HabitFormBottomSheet.REQUEST_KEY, viewLifecycleOwner
+        ) { _, bundle ->
+            val habit = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                bundle.getParcelable(HabitFormBottomSheet.RESULT_HABIT, Habit::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                bundle.getParcelable(HabitFormBottomSheet.RESULT_HABIT)
+            }
+            habit?.let { viewModel.saveHabit(it) }
+        }
         startStarAnimation(binding.headerContainer.headerStarLeft, 0L)
         startStarAnimation(binding.headerContainer.headerStarRight, 300L)
     }
@@ -163,9 +174,6 @@ class HabitsFragment : Fragment() {
 
     private fun showHabitForm(habit: Habit?) {
         val bottomSheet = HabitFormBottomSheet.newInstance(habit)
-        bottomSheet.onSave = { updatedHabit ->
-            viewModel.saveHabit(updatedHabit)
-        }
         bottomSheet.show(parentFragmentManager, "HabitForm")
     }
 

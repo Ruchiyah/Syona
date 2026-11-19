@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# --- Syona ---
+# App state is persisted as JSON with Gson via reflection. If R8 minification is enabled,
+# the model classes must keep their field names or previously saved data will not load.
+-keep class com.example.syona.data.model.** { *; }
+-keep class com.example.syona.data.preferences.PreferencesState { *; }
+-keepattributes Signature
+-keepattributes *Annotation*

@@ -167,7 +167,7 @@
                         android:layout_gravity="center"
                         android:contentDescription="@string/label_habit_empty_state_title"
                         android:src="@drawable/ic_habit_smile"
-                        android:tint="@android:color/white" />
+                        app:tint="@android:color/white" />
                 </FrameLayout>
 
                 <!-- Empty State Text -->
@@ -240,7 +240,7 @@
                 android:layout_height="28dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_add"
-                android:tint="@android:color/white" />
+                app:tint="@android:color/white" />
         </FrameLayout>
     </com.google.android.material.card.MaterialCardView>
 

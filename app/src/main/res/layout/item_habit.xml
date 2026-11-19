@@ -43,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:tint="@color/color_gradient_start"
+                app:tint="@color/color_gradient_start"
                 android:contentDescription="@string/content_description_habit_icon"
                 tools:src="@drawable/ic_habit_heart" />
         </FrameLayout>
@@ -84,7 +84,7 @@
             android:contentDescription="@string/content_description_edit_habit"
             android:padding="8dp"
             android:src="@drawable/ic_more"
-            android:tint="@color/color_text_secondary" />
+            app:tint="@color/color_text_secondary" />
 
     </LinearLayout>
 

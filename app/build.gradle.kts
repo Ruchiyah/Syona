@@ -30,6 +30,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // java.time is used throughout; minSdk 24 needs desugaring (java.time is API 26+)
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -59,7 +61,7 @@ dependencies {
     // implementation(libs.lottie)
     implementation(libs.mpandroidchart)
     implementation(libs.gson)
-    implementation(libs.coil)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

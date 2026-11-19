@@ -87,7 +87,7 @@
                 android:layout_gravity="center"
                 android:contentDescription="@string/label_delete"
                 android:src="@drawable/ic_delete"
-                android:tint="@color/color_text_secondary" />
+                app:tint="@color/color_text_secondary" />
         </com.google.android.material.card.MaterialCardView>
 
         <TextView

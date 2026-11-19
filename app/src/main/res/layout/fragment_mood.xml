@@ -82,7 +82,7 @@
                                     android:layout_height="40dp"
                                     android:contentDescription="@string/label_mood_insights_title"
                                     android:src="@drawable/ic_star_twinkle"
-                                    android:tint="@color/color_mood_insights_start" />
+                                    app:tint="@color/color_mood_insights_start" />
                             </LinearLayout>
                         </com.google.android.material.card.MaterialCardView>
 
@@ -253,7 +253,7 @@
                         android:background="@drawable/bg_mood_empty_icon"
                         android:padding="24dp"
                         android:src="@drawable/ic_nav_mood"
-                        android:tint="@android:color/white" />
+                        app:tint="@android:color/white" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <TextView
@@ -324,7 +324,7 @@
                 android:layout_height="28dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_add"
-                android:tint="@android:color/white" />
+                app:tint="@android:color/white" />
         </FrameLayout>
     </com.google.android.material.card.MaterialCardView>
 

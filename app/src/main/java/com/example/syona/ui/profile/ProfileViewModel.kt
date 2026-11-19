@@ -62,6 +62,11 @@ class ProfileViewModel(private val repository: WellnessRepository) : ViewModel()
         repository.applyStepCounterReading(totalSteps)
     }
 
+    val moodEntries = repository.observeMoodEntries()
+
+    fun getMoodDataForRange(range: String): List<Pair<Long, Float>> =
+        com.example.syona.ui.mood.MoodChartData.aggregate(moodEntries.value, range)
+
     fun recordStepDetector(count: Int) {
         repository.incrementStepDetector(count)
     }

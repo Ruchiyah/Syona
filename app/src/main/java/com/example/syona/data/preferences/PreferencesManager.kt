@@ -126,7 +126,7 @@ class PreferencesManager(context: Context) {
     private fun readState(): PreferencesState {
         val json = sharedPreferences.getString(KEY_STATE, null) ?: return PreferencesState()
         return runCatching {
-            gson.fromJson(json, PreferencesState::class.java)
+            parseState(gson, json)
         }.getOrElse { PreferencesState() }
     }
 
@@ -136,6 +136,11 @@ class PreferencesManager(context: Context) {
     }
 
     companion object {
+        /** Parses stored JSON and repairs nulls Gson may have injected (see [sanitized]). */
+        internal fun parseState(gson: Gson, json: String): PreferencesState =
+            (gson.fromJson(json, PreferencesState::class.java) as PreferencesState?)?.sanitized()
+                ?: PreferencesState()
+
         private const val PREFS_NAME = "syona_prefs"
         private const val KEY_STATE = "wellness_state"
     }

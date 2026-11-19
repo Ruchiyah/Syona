@@ -92,4 +92,24 @@ class PerfectDaysTest {
         assertEquals(setOf(monday), PerfectDays.perfectDays(listOf(a, b), c, monday, monday + 1))
         assertEquals(setOf(monday, monday + 1), PerfectDays.perfectDays(listOf(a), c, monday, monday + 1))
     }
+
+    @Test fun legacyLastDayInsideRun() {
+        val r = PerfectDays.streak(setOf(t - 1), t, 5, t - 1, 0)
+        assertEquals(5, r.current)
+        assertEquals(5, r.best)
+    }
+
+    @Test fun legacyLastDayInsideLongerRun() {
+        assertEquals(6, PerfectDays.streak(setOf(t - 1, t), t, 5, t - 1, 0).current)
+    }
+
+    @Test fun legacyTodayAndTodayPerfect() {
+        assertEquals(3, PerfectDays.streak(setOf(t), t, 3, t, 0).current)
+    }
+
+    @Test fun legacyJoinedRunNotCurrentCountsForBest() {
+        val r = PerfectDays.streak(setOf(t - 20, t - 19), t, 10, t - 21, 0)
+        assertEquals(0, r.current)
+        assertEquals(12, r.best)
+    }
 }

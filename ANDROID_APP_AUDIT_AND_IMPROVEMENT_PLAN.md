@@ -1,6 +1,6 @@
 # Syona — Android App Audit & Improvement Plan
 
-Audit date: 2026-11-19 · Auditor: Claude Code (automated audit of the local working tree, not the single git commit)
+Audit date: 2026-11-19 (audit of the local working tree, not the single git commit)
 
 > Status legend: ✅ done & verified · 🟡 done, needs device verification · ⛔ not done (reason given) · ➖ intentionally deferred
 

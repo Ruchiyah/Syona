@@ -1,7 +1,13 @@
 package com.example.syona.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.example.syona.data.settings.DataStoreSettingsStore
+import com.example.syona.data.settings.SettingsStore
 import com.example.syona.data.db.SyonaDatabase
 import dagger.Module
 import dagger.Provides
@@ -24,4 +30,14 @@ object AppModule {
     @Provides fun provideStepDao(db: SyonaDatabase) = db.stepDao()
     @Provides fun provideGoalDao(db: SyonaDatabase) = db.goalDao()
     @Provides fun provideProfileDao(db: SyonaDatabase) = db.profileDao()
+
+    @Provides
+    @Singleton
+    fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("settings") }
+
+    @Provides
+    @Singleton
+    fun provideSettingsStore(dataStore: DataStore<Preferences>): SettingsStore =
+        DataStoreSettingsStore(dataStore)
 }

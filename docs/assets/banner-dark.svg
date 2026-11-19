@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Syona: a private wellness tracker for habits, mood, water and steps">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0D1F2B"/><stop offset="1" stop-color="#123A40"/>
+    </linearGradient>
+    <linearGradient id="tide" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2AB6A3"/><stop offset="1" stop-color="#4D9BE6"/>
+    </linearGradient>
+    <linearGradient id="drop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3E9B83"/><stop offset="1" stop-color="#2E6E73"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F4C267" stop-opacity="0.25"/><stop offset="1" stop-color="#F4C267" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="frame"><rect width="1280" height="360" rx="24"/></clipPath>
+    <clipPath id="dropclip"><path d="M44 0 C44 0 88 52 88 84 A44 44 0 0 1 0 84 C0 52 44 0 44 0 Z"/></clipPath>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect width="1280" height="360" fill="url(#sky)"/>
+    <!-- sun rising over the horizon -->
+    <circle cx="1010" cy="236" r="150" fill="url(#glow)"/>
+    <circle cx="1010" cy="236" r="62" fill="#F4C267"/>
+    <g stroke="#F4C267" stroke-width="7" stroke-linecap="round" opacity="0.9">
+      <line x1="1010" y1="132" x2="1010" y2="104"/>
+      <line x1="938" y1="162" x2="918" y2="142"/>
+      <line x1="1082" y1="162" x2="1102" y2="142"/>
+      <line x1="908" y1="226" x2="880" y2="222"/>
+      <line x1="1112" y1="226" x2="1140" y2="222"/>
+    </g>
+    <!-- layered tide -->
+    <path d="M0 276 C160 248 300 298 470 272 C640 246 760 286 930 266 C1080 248 1180 276 1280 262 L1280 360 L0 360 Z" fill="url(#tide)" opacity="0.55"/>
+    <path d="M0 300 C180 278 330 318 520 298 C700 280 840 314 1010 296 C1140 284 1220 302 1280 294 L1280 360 L0 360 Z" fill="url(#tide)" opacity="0.75"/>
+    <path d="M0 324 C200 310 360 340 560 326 C760 312 900 338 1080 324 C1180 316 1240 326 1280 322 L1280 360 L0 360 Z" fill="url(#tide)" opacity="0.95"/>
+    <!-- sparkles, as in the app header -->
+    <g fill="#CFEFEA">
+      <path d="M1180 70 l5 15 15 5 -15 5 -5 15 -5 -15 -15 -5 15 -5z" opacity="0.8"/>
+      <path d="M842 92 l3 9 9 3 -9 3 -3 9 -3 -9 -9 -3 9 -3z" opacity="0.6"/>
+      <path d="M620 60 l3.5 10.5 10.5 3.5 -10.5 3.5 -3.5 10.5 -3.5 -10.5 -10.5 -3.5 10.5 -3.5z" opacity="0.45"/>
+    </g>
+    <!-- mark: the app's drop with sunrise over a wave -->
+    <g transform="translate(84 46) scale(0.82)">
+      <path d="M44 0 C44 0 88 52 88 84 A44 44 0 0 1 0 84 C0 52 44 0 44 0 Z" fill="url(#drop)"/>
+      <g clip-path="url(#dropclip)">
+        <g stroke="#FFFFFF" stroke-width="4" stroke-linecap="round">
+          <line x1="44" y1="50" x2="44" y2="58"/>
+          <line x1="26" y1="58" x2="31" y2="64"/>
+          <line x1="62" y1="58" x2="57" y2="64"/>
+          <line x1="16" y1="74" x2="23" y2="76"/>
+          <line x1="72" y1="74" x2="65" y2="76"/>
+        </g>
+        <circle cx="44" cy="84" r="15" fill="#FFFFFF"/>
+        <path d="M-4 86 C18 76 38 94 58 86 C74 80 86 84 92 82 L92 140 L-4 140 Z" fill="#FFFFFF"/>
+        <path d="M-4 92 C18 82 40 100 60 92 C76 86 86 90 92 88 L92 140 L-4 140 Z" fill="url(#tide)"/>
+      </g>
+    </g>
+    <!-- wordmark and promise -->
+    <text x="176" y="124" font-family="'Avenir Next','Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="88" font-weight="700" letter-spacing="-2.5" fill="#EAF7F4">Syona</text>
+    <text x="86" y="192" font-family="'Avenir Next','Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="30" font-weight="500" fill="#EAF7F4">Your day, privately.</text>
+    <text x="86" y="228" font-family="'Avenir Next','Segoe UI','Helvetica Neue',Arial,sans-serif" font-size="21" font-weight="400" fill="#A9CBC6">Habits, mood, water and steps in one offline Android app.</text>
+  </g>
+</svg>

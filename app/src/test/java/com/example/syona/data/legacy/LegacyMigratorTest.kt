@@ -31,9 +31,10 @@ class LegacyMigratorTest {
         override suspend fun writeAll(bundle: MigrationBundle, photoPath: String?) {
             if (fail) throw IllegalStateException("boom")
             writes++
-            bundle.habits.forEach { habits[it.id] = it }
-            bundle.completions.forEach { completions[it.habitId to it.day] = it }
-            bundle.waterLogs.forEach { water[it.id] = it }
+            // Add-only, like RoomMigrationSink (R8): existing rows are never overwritten.
+            bundle.habits.forEach { habits.putIfAbsent(it.id, it) }
+            bundle.completions.forEach { completions.putIfAbsent(it.habitId to it.day, it) }
+            bundle.waterLogs.forEach { water.putIfAbsent(it.id, it) }
             lastPhotoPath = photoPath
         }
     }
@@ -126,6 +127,31 @@ class LegacyMigratorTest {
         assertEquals(LegacyMigrator.Result.Migrated, r)
         assertNull(sink.lastPhotoPath)
         assertTrue(settings.current().migratedV2)
+    }
+
+    @Test fun retryAfterOnboardingKeepsNewerSettings() = runTest {
+        val newer = com.example.syona.data.settings.AppSettings(
+            onboardingComplete = true,
+            waterGoalMl = 3100,
+            stepGoal = 12345,
+            remindersEnabled = true
+        )
+        val settings = InMemorySettingsStore(newer)
+        val r = migrator(json(state()), FakeSink(), settings).migrateIfNeeded()
+        assertEquals(LegacyMigrator.Result.Migrated, r)
+        val legacy = LegacyMapper.map(state(), zone, today).settings(com.example.syona.data.settings.AppSettings())
+        // Only the legacy perfect-day carry-over and the flag change; user's newer settings stay.
+        assertEquals(
+            newer.copy(
+                migratedV2 = true,
+                legacyPerfectBest = legacy.legacyPerfectBest,
+                legacyPerfectCurrent = legacy.legacyPerfectCurrent,
+                legacyPerfectLastDay = legacy.legacyPerfectLastDay
+            ),
+            settings.current()
+        )
+        assertEquals(9, settings.current().legacyPerfectBest)
+        assertEquals(4, settings.current().legacyPerfectCurrent)
     }
 
     @Test fun validPhotoIsSavedAndPathPassed() = runTest {

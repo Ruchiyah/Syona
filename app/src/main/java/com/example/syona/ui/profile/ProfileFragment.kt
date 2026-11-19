@@ -773,6 +773,9 @@ class ProfileFragment : Fragment() {
             .setPositiveButton("Clear All") { dialog, _ ->
                 val repository = (requireActivity().application as SyonaApp).repository
                 repository.clearAllData()
+                val filesDir = requireContext().filesDir
+                File(filesDir, PROFILE_PHOTO_FILE).delete()
+                File(filesDir, LEGACY_PHOTO_FILE).delete()
                 // Clearing data disables these features; also stop the work they had scheduled
                 com.example.syona.service.HydrationReminderManager(requireContext()).cancelReminders()
                 StepCounterService.stop(requireContext())
@@ -881,8 +884,14 @@ class ProfileFragment : Fragment() {
     }
     
     private fun removeProfilePhoto() {
-        File(requireContext().filesDir, PROFILE_PHOTO_FILE).delete()
+        val filesDir = requireContext().filesDir
+        File(filesDir, PROFILE_PHOTO_FILE).delete()
         val currentProfile = viewModel.profileData.value
+        // The current photo may be another app-private file (e.g. the migrated profile_legacy.jpg).
+        currentProfile.photoUri?.let { path ->
+            val f = File(path)
+            if (f.isFile && f.canonicalPath.startsWith(filesDir.canonicalPath + File.separator)) f.delete()
+        }
         viewModel.updateProfile(
             name = currentProfile.name,
             age = currentProfile.age,
@@ -1013,5 +1022,6 @@ class ProfileFragment : Fragment() {
     companion object {
         private const val MAX_DECODE_SIZE_PX = 800
         private const val PROFILE_PHOTO_FILE = "profile.jpg"
+        private const val LEGACY_PHOTO_FILE = "profile_legacy.jpg"
     }
 }

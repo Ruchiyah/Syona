@@ -347,10 +347,8 @@ class WellnessRepository @Inject constructor(
         if (intake > old) {
             enqueue { waterDao.insert(WaterLogEntity(amountMl = intake - old, timestamp = now, day = day)) }
         } else {
-            enqueue {
-                waterDao.deleteDay(day)
-                if (intake > 0) waterDao.insert(WaterLogEntity(amountMl = intake, timestamp = now, day = day))
-            }
+            val log = if (intake > 0) WaterLogEntity(amountMl = intake, timestamp = now, day = day) else null
+            enqueue { waterDao.replaceDay(day, log) }
         }
     }
 

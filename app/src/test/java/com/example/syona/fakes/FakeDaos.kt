@@ -36,6 +36,10 @@ class FakeHabitDao : HabitDao {
         habits.update { m -> m + list.associateBy { it.id } }
     }
 
+    override suspend fun insertAllIfAbsent(list: List<HabitEntity>) {
+        habits.update { m -> list.associateBy { it.id } + m }
+    }
+
     // Mirrors Room's ON DELETE CASCADE on habit_completion.
     override suspend fun delete(id: Long) {
         habits.update { it - id }
@@ -78,6 +82,10 @@ class FakeMoodDao : MoodDao {
 
     override suspend fun insert(entry: MoodEntryEntity) = upsertAll(listOf(entry))
 
+    override suspend fun insertAllIfAbsent(list: List<MoodEntryEntity>) {
+        entries.update { m -> list.associateBy { it.id } + m }
+    }
+
     override suspend fun delete(id: Long) {
         entries.update { it - id }
     }
@@ -108,9 +116,16 @@ class FakeWaterDao : WaterDao {
         logs.update { l -> l.filterNot { it.id in ids } + list }
     }
 
+    override suspend fun insertAllIfAbsent(list: List<WaterLogEntity>) {
+        val ids = logs.value.map { it.id }.toSet()
+        logs.update { l -> l + list.filterNot { it.id in ids } }
+    }
+
     override suspend fun deleteDay(day: Long) {
         logs.update { l -> l.filterNot { it.day == day } }
     }
+
+    // replaceDay uses the interface default (deleteDay + insert); no transaction needed in-memory.
 
     override suspend fun clear() {
         logs.value = emptyList()
@@ -121,6 +136,8 @@ class FakeStepDao : StepDao {
     val days = MutableStateFlow<Map<Long, StepDayEntity>>(emptyMap())
 
     override fun observeDay(day: Long): Flow<StepDayEntity?> = days.map { it[day] }
+
+    override suspend fun get(day: Long): StepDayEntity? = days.value[day]
 
     override suspend fun upsert(s: StepDayEntity) {
         days.update { it + (s.day to s) }
@@ -138,6 +155,10 @@ class FakeGoalDao : GoalDao {
         goals.update { it + (g.day to g) }
     }
 
+    override suspend fun insertAllIfAbsent(list: List<DailyGoalEntity>) {
+        goals.update { m -> list.associateBy { it.day } + m }
+    }
+
     override suspend fun clear() {
         goals.value = emptyMap()
     }
@@ -152,6 +173,10 @@ class FakeProfileDao : ProfileDao {
 
     override suspend fun upsert(p: ProfileEntity) {
         profile.value = p
+    }
+
+    override suspend fun insertIfAbsent(p: ProfileEntity) {
+        if (profile.value == null) profile.value = p
     }
 
     override suspend fun clear() {

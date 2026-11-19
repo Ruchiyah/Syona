@@ -37,7 +37,21 @@ class LegacyMigrator(
                 runCatching { savePhoto(decodeBase64(b64)) }.getOrNull()
             }
             sink.writeAll(bundle, photoPath)
-            settings.update { bundle.settings(it).copy(migratedV2 = true) }
+            settings.update { current ->
+                val legacy = bundle.settings(current)
+                if (current.onboardingComplete) {
+                    // Retry after a failed run: the user already set the app up again, so their
+                    // newer settings win; only carry over the legacy perfect-day streak (R8).
+                    current.copy(
+                        legacyPerfectBest = legacy.legacyPerfectBest,
+                        legacyPerfectCurrent = legacy.legacyPerfectCurrent,
+                        legacyPerfectLastDay = legacy.legacyPerfectLastDay,
+                        migratedV2 = true
+                    )
+                } else {
+                    legacy.copy(migratedV2 = true)
+                }
+            }
             Result.Migrated
         } catch (e: CancellationException) {
             throw e

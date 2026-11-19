@@ -21,14 +21,18 @@ class RoomMigrationSink @Inject constructor(
 ) : MigrationSink {
     override suspend fun writeAll(bundle: MigrationBundle, photoPath: String?) {
         db.withTransaction {
-            // Habits first: completions have an FK to habit. @Upsert keeps existing completions (R4).
-            habitDao.upsertAll(bundle.habits)
+            // Add-only (R8): a retry must never overwrite rows the user created or edited since.
+            // Habits first: completions have an FK to habit.
+            habitDao.insertAllIfAbsent(bundle.habits)
             habitDao.insertCompletions(bundle.completions)
-            moodDao.upsertAll(bundle.moods)
-            waterDao.upsertAll(bundle.waterLogs)
-            bundle.stepDays.forEach { stepDao.upsert(it) }
-            bundle.goals.forEach { goalDao.upsert(it) }
-            bundle.profile?.let { profileDao.upsert(it.copy(photoPath = photoPath)) }
+            moodDao.insertAllIfAbsent(bundle.moods)
+            waterDao.insertAllIfAbsent(bundle.waterLogs)
+            bundle.stepDays.forEach { legacy ->
+                val existing = stepDao.get(legacy.day)?.steps ?: 0
+                stepDao.upsert(legacy.copy(steps = maxOf(existing, legacy.steps)))
+            }
+            goalDao.insertAllIfAbsent(bundle.goals)
+            bundle.profile?.let { profileDao.insertIfAbsent(it.copy(photoPath = photoPath)) }
         }
     }
 }

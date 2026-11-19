@@ -2,6 +2,8 @@
 
 Date: 2026-11-19 · Status: draft for approval (owner answers from builder check included)
 
+> Phases 1–2 status: a failed migration logs the error, starts with an empty store and retries next launch (legacy blob untouched; retries are add-only, see R8). The 'Export raw data' error screen ships in phase 3.
+
 ## 1. Intent and why
 Turn Syona into a **portfolio piece**: a private, offline wellness tracker built and engineered to the standard of the best apps in its category (Loop Habit Tracker, Daylio, Waterllama), so that both a user and a reviewing engineer would rate it highly. It will **not** be published to the Play Store (owner's decision), but it must be release-quality: no crashes, no data loss, polished UI, tested.
 
@@ -76,7 +78,7 @@ On first launch of the new version: read the legacy JSON with the existing `Pref
 - Profile, with the Base64 photo decoded to a file.
 - Settings to DataStore.
 
-Only after the transaction commits, set a `migrated_v2` flag. Keep the old blob untouched for one version as a fallback. If migration throws, the app shows an error screen offering "Export raw data" rather than starting empty. The old app's single streak ("days on which every habit was done") is kept as a **Perfect days** streak shown on the Me tab. Its stored best value (`longestStreak`) is carried into DataStore as `legacyPerfectBest` and used as a floor (builder call). Per-habit streaks start from the migrated history. Legacy water and step values are written to the day they belong to (`lastResetDate`), not blindly to today. The five moods map to scores 1–5 as now (builder call).
+Only after the transaction commits, set a `migrated_v2` flag. Keep the old blob untouched for one version as a fallback. If migration throws, the app shows an error screen offering "Export raw data" rather than starting empty. *(Phases 1–2 status: a failed migration logs the error, starts with an empty store and retries next launch (legacy blob untouched; retries are add-only, see R8). The 'Export raw data' error screen ships in phase 3.)* The old app's single streak ("days on which every habit was done") is kept as a **Perfect days** streak shown on the Me tab. Its stored best value (`longestStreak`) is carried into DataStore as `legacyPerfectBest` and used as a floor (builder call). Per-habit streaks start from the migrated history. Legacy water and step values are written to the day they belong to (`lastResetDate`), not blindly to today. The five moods map to scores 1–5 as now (builder call).
 
 ## 8. Features (end state)
 

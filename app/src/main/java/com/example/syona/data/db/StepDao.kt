@@ -11,6 +11,9 @@ interface StepDao {
     @Query("SELECT * FROM step_day WHERE day = :day")
     fun observeDay(day: Long): Flow<StepDayEntity?>
 
+    @Query("SELECT * FROM step_day WHERE day = :day")
+    suspend fun get(day: Long): StepDayEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(s: StepDayEntity)
 

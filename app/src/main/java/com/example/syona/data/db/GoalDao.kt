@@ -10,6 +10,9 @@ interface GoalDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(g: DailyGoalEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIfAbsent(list: List<DailyGoalEntity>)
+
     @Query("DELETE FROM daily_goal")
     suspend fun clear()
 }

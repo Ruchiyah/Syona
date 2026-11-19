@@ -22,7 +22,9 @@ import com.example.syona.SyonaApp
 class HydrationReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val hydrationState = (applicationContext as SyonaApp).repository.hydrationSnapshot()
+        val app = applicationContext as SyonaApp
+        app.awaitStartup() // may run before Application.onCreate finishes (R9)
+        val hydrationState = app.repository.hydrationSnapshot()
 
         // Check if reminders are enabled
         if (!hydrationState.remindersEnabled) {

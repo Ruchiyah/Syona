@@ -21,6 +21,10 @@ interface HabitDao {
     @Upsert
     suspend fun upsertAll(list: List<HabitEntity>)
 
+    /** Legacy import only: never overwrites an existing habit (R8). */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIfAbsent(list: List<HabitEntity>)
+
     @Query("DELETE FROM habit WHERE id = :id")
     suspend fun delete(id: Long)
 

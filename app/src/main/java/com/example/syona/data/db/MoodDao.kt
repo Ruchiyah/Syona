@@ -17,6 +17,9 @@ interface MoodDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: MoodEntryEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIfAbsent(list: List<MoodEntryEntity>)
+
     @Query("DELETE FROM mood_entry WHERE id = :id")
     suspend fun delete(id: Long)
 

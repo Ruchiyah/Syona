@@ -74,7 +74,8 @@ object AppModule {
         sink = sink,
         settings = settings,
         savePhoto = { bytes ->
-            val f = File(context.filesDir, "profile.jpg")
+            // Separate name: a retry must not overwrite a photo the user picked since (R8).
+            val f = File(context.filesDir, "profile_legacy.jpg")
             f.writeBytes(bytes)
             f.absolutePath
         },

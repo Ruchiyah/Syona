@@ -81,12 +81,13 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
             setHasFixedSize(true)
         }
 
-        val frequencies = HabitFrequency.values().map { it.displayName }
+        val frequencyOptions = HabitFrequency.values().filter { it != HabitFrequency.WEEKLY }
+        val frequencies = frequencyOptions.map { it.displayName }
         val frequencyAdapter = ArrayAdapter(context, android.R.layout.simple_list_item_1, frequencies)
         binding.frequencyAutoComplete.setAdapter(frequencyAdapter)
         
         binding.frequencyAutoComplete.setOnItemClickListener { _, _, position, _ ->
-            val selected = HabitFrequency.values()[position]
+            val selected = frequencyOptions[position]
             binding.customDaysContainer.visibility = if (selected == HabitFrequency.CUSTOM) View.VISIBLE else View.GONE
         }
 

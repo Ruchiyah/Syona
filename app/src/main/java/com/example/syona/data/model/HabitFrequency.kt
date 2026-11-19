@@ -6,7 +6,8 @@ enum class HabitFrequency(val displayName: String) {
     DAILY("Daily"),
     WEEKDAYS("Weekdays"),
     WEEKENDS("Weekends"),
-    WEEKLY("Weekly"),
+    WEEKLY("Weekly"), // legacy only: kept so old JSON parses; not offered in the UI
+    TIMES_PER_WEEK("Times per week"),
     CUSTOM("Custom");
 
     companion object {
@@ -26,6 +27,7 @@ enum class HabitFrequency(val displayName: String) {
             WEEKDAYS -> dayOfWeek in Calendar.MONDAY..Calendar.FRIDAY
             WEEKENDS -> dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY
             WEEKLY -> true // Show weekly habits every day
+            TIMES_PER_WEEK -> true
             CUSTOM -> customDays?.contains(dayOfWeek) == true
         }
     }

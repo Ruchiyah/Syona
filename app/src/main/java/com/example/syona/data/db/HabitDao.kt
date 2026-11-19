@@ -4,20 +4,21 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface HabitDao {
-    @Query("SELECT * FROM habit WHERE archived = 0 ORDER BY sortOrder")
+    @Query("SELECT * FROM habit WHERE archived = 0 ORDER BY sortOrder, id")
     fun observeActive(): Flow<List<HabitEntity>>
 
-    @Query("SELECT * FROM habit")
+    @Query("SELECT * FROM habit ORDER BY sortOrder, id")
     suspend fun getAll(): List<HabitEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsert(vararg h: HabitEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertAll(list: List<HabitEntity>)
 
     @Query("DELETE FROM habit WHERE id = :id")

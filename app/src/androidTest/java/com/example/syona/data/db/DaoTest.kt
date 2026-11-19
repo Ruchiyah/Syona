@@ -41,6 +41,16 @@ class DaoTest {
     }
 
     @Test
+    fun upsertingExistingHabitKeepsCompletions() = runBlocking {
+        val dao = db.habitDao()
+        dao.upsert(habit(1))
+        dao.insertCompletions(listOf(HabitCompletionEntity(1, 10), HabitCompletionEntity(1, 11)))
+        dao.upsert(habit(1).copy(name = "renamed"))
+        assertEquals(2, dao.observeAllCompletions().first().size)
+        assertEquals("renamed", dao.getAll().single().name)
+    }
+
+    @Test
     fun waterTotalSumsOnlyThatDay() = runBlocking {
         val dao = db.waterDao()
         dao.insert(WaterLogEntity(amountMl = 250, timestamp = 1, day = 5))

@@ -312,3 +312,28 @@ The profile photo: when saving a new photo, `ProfileFragment` writes the JPEG to
 
 ## After this plan
 Update `ANDROID_APP_AUDIT_AND_IMPROVEMENT_PLAN.md` / the spec status with what shipped, then plan Phase 3 (Compose theme, Settings, backup/restore/export, migration-failure screen, backup rules).
+
+---
+
+## Outcome (2026-11-19)
+All tasks complete on `feature/data-foundation` (d26626c..HEAD). Per-task review and final whole-branch review passed after fixes. 68/68 JVM tests pass, lint reports 0 errors, debug, release and androidTest builds succeed. **Not executed:** `DaoTest`, `RoomMigrationSinkTest`, and the old-APK → new-APK device smoke test. No emulator could run: Android 14 needs about 7.4 GB free.
+
+Rulings made during execution (they override plan text):
+- **R1:** WEEKLY is hidden in the habit form and stored as TIMES_PER_WEEK with target 1.
+- **R4:** habits are written with `@Upsert`, never REPLACE (cascade would erase completions).
+- **R5:** a legacy streak is folded into any run containing or adjoining `legacyLastDay`.
+- **R6:** the repository's in-memory state is authoritative after one load. There is a single ordered writer.
+- **R7/R9:** migration runs before the repository loads. Non-UI entry points call `SyonaApp.awaitStartup()`.
+- **R8:** the legacy import is add-only.
+
+### Follow-ups for phase 3+
+- Migration-failure error screen with "Export raw data". DataStore `corruptionHandler`. Startup must survive a `load()` failure or a corrupt settings file. Malformed legacy JSON currently retries on every launch.
+- A habit or mood deleted after a failed migration can be re-imported by a later successful retry. Needs tombstones or import markers.
+- Surface repository write failures to the user and reload from the DB. The writer currently logs `Exception`s.
+- Any DB writer outside the repository (e.g. backup restore) must make the repository reload (R6).
+- Per-step cost: a full DataStore edit plus `publish()` on every sensor event. Consider conflating.
+- `Converters`: a tag containing `\u001F` splits, and `listOf("")` round-trips to an empty list. Fix before the tags UI.
+- Test gaps: DAO coverage, UTC-only mapper tests, all settings fields, same-day `refreshAll` no-op, water decrease.
+- `ManifestPolicyTest` hygiene: declare the manifest as a test input, scope the test to debug, anchor the glob.
+- `WellnessRepository.kt` is about 540 lines. Split state assembly into the mappers.
+- Run all androidTests and the upgrade smoke test as soon as an emulator or device is available.

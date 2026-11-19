@@ -154,8 +154,10 @@ class WellnessRepository @Inject constructor(
 
     /** Rolls the in-memory "today" over to the clock's current day (midnight, app resume). */
     fun refreshAll() {
-        val day = currentDay()
         synchronized(lock) {
+            // Read the day inside the lock: the reminder worker and the UI may both call this
+            // around midnight, and a stale read must not roll "today" back.
+            val day = currentDay()
             if (day == today.value) return
             today.value = day
             val generation = ++waterGeneration

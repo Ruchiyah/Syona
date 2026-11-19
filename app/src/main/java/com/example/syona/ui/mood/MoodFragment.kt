@@ -116,6 +116,8 @@ class MoodFragment : Fragment() {
             val mood = bundle.getString(MoodEntryBottomSheet.RESULT_MOOD)
                 ?.let { name -> runCatching { com.example.syona.data.model.MoodType.valueOf(name) }.getOrNull() }
                 ?: return@setFragmentResultListener
+            // The screen may have stayed open past midnight without pausing
+            viewModel.onDayMaybeChanged()
             viewModel.addMood(mood, bundle.getString(MoodEntryBottomSheet.RESULT_NOTE))
         }
         binding.addFirstMoodButton.setOnClickListener { openMoodSheet() }

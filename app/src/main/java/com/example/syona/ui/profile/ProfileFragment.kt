@@ -639,18 +639,16 @@ class ProfileFragment : Fragment() {
             }
             val goal = if (goalSpinner.selectedItemPosition == 0) "" else goalSpinner.selectedItem.toString()
 
-            if (name.isEmpty()) {
-                Toast.makeText(requireContext(), "Please enter your name", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            // Keep the typed details only when they are valid; the photo picker opens either way
+            if (name.isNotEmpty()) {
+                viewModel.updateProfile(
+                    name = name,
+                    age = age,
+                    gender = gender,
+                    wellnessGoal = goal,
+                    photoUri = currentProfile.photoUri
+                )
             }
-
-            viewModel.updateProfile(
-                name = name,
-                age = age,
-                gender = gender,
-                wellnessGoal = goal,
-                photoUri = currentProfile.photoUri
-            )
 
             dialog.dismiss()
             showImagePickerDialog()

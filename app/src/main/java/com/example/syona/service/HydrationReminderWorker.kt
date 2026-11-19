@@ -17,13 +17,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.syona.MainActivity
 import com.example.syona.R
-import com.example.syona.data.preferences.PreferencesManager
+import com.example.syona.SyonaApp
 
 class HydrationReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val preferencesManager = PreferencesManager(applicationContext)
-        val hydrationState = preferencesManager.getHydrationState()
+        val hydrationState = (applicationContext as SyonaApp).repository.hydrationSnapshot()
 
         // Check if reminders are enabled
         if (!hydrationState.remindersEnabled) {

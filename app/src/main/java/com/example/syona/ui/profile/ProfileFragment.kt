@@ -45,6 +45,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 class ProfileFragment : Fragment() {
 
@@ -302,7 +303,7 @@ class ProfileFragment : Fragment() {
     private fun updateUI(profile: com.example.syona.data.model.ProfileData) {
         // Update profile photo
         if (!profile.photoUri.isNullOrEmpty()) {
-            loadImageFromBase64(profile.photoUri)
+            loadProfilePhoto(profile.photoUri)
         } else {
             showProfilePlaceholder()
         }
@@ -830,8 +831,9 @@ class ProfileFragment : Fragment() {
             // Resize to reduce size while maintaining quality
             val resizedBitmap = resizeBitmap(squareBitmap, 400, 400)
 
-            // Convert to Base64
-            val base64String = bitmapToBase64(resizedBitmap)
+            // Persist as a file in app-private storage; ProfileData stores its path
+            val photoFile = File(requireContext().filesDir, PROFILE_PHOTO_FILE)
+            photoFile.writeBytes(bitmapToJpegBytes(resizedBitmap))
 
             // Clean up
             if (squareBitmap != bitmap) squareBitmap.recycle()
@@ -845,9 +847,11 @@ class ProfileFragment : Fragment() {
                 age = currentProfile.age,
                 gender = currentProfile.gender,
                 wellnessGoal = currentProfile.wellnessGoal,
-                photoUri = base64String
+                photoUri = photoFile.absolutePath
             )
             
+            // Same path as before => profile state may not change, so refresh the view directly.
+            loadProfilePhoto(photoFile.absolutePath)
             Toast.makeText(requireContext(), "Photo updated successfully!", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             showProfilePlaceholder()
@@ -877,6 +881,7 @@ class ProfileFragment : Fragment() {
     }
     
     private fun removeProfilePhoto() {
+        File(requireContext().filesDir, PROFILE_PHOTO_FILE).delete()
         val currentProfile = viewModel.profileData.value
         viewModel.updateProfile(
             name = currentProfile.name,
@@ -920,11 +925,21 @@ class ProfileFragment : Fragment() {
         return Bitmap.createScaledBitmap(bitmap, finalWidth, finalHeight, true)
     }
     
-    private fun bitmapToBase64(bitmap: Bitmap): String {
+    private fun bitmapToJpegBytes(bitmap: Bitmap): ByteArray {
         val byteArrayOutputStream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream)
-        val byteArray = byteArrayOutputStream.toByteArray()
-        return Base64.encodeToString(byteArray, Base64.DEFAULT)
+        return byteArrayOutputStream.toByteArray()
+    }
+
+    /** Loads from a file path; falls back to legacy Base64 for photos not yet migrated. */
+    private fun loadProfilePhoto(photo: String) {
+        val file = File(photo)
+        if (file.isFile) {
+            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+            if (bitmap != null) showProfileBitmap(bitmap) else showProfilePlaceholder()
+        } else {
+            loadImageFromBase64(photo)
+        }
     }
     
     private fun loadImageFromBase64(base64String: String) {
@@ -997,5 +1012,6 @@ class ProfileFragment : Fragment() {
 
     companion object {
         private const val MAX_DECODE_SIZE_PX = 800
+        private const val PROFILE_PHOTO_FILE = "profile.jpg"
     }
 }

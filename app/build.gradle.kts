@@ -80,3 +80,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.room.testing)
 }
+// ManifestPolicyTest reads the merged debug manifest.
+tasks.withType<Test>().configureEach {
+    dependsOn("processDebugMainManifest")
+}

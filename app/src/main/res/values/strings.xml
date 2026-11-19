@@ -145,4 +145,5 @@
         <item>Non-binary</item>
         <item>Prefer not to say</item>
     </string-array>
+    <string name="error_select_custom_day">Select at least one day</string>
 </resources>

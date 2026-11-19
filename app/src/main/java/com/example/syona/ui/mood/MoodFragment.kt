@@ -347,6 +347,11 @@ class MoodFragment : Fragment() {
         starAnimators.add(scaleYAnimator)
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.onDayMaybeChanged()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         starAnimators.forEach { it.cancel() }

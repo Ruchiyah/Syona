@@ -593,6 +593,7 @@ class ProfileFragment : Fragment() {
 
         // Setup wellness goal spinner
         val goals = arrayOf(
+            getString(R.string.label_not_set),
             "Better Sleep",
             "Reduce Stress",
             "Increase Energy",
@@ -616,7 +617,7 @@ class ProfileFragment : Fragment() {
             "Other" -> otherRadio.isChecked = true
         }
 
-        val goalIndex = goals.indexOf(currentProfile.wellnessGoal)
+        val goalIndex = if (currentProfile.wellnessGoal.isEmpty()) 0 else goals.indexOf(currentProfile.wellnessGoal)
         if (goalIndex >= 0) {
             goalSpinner.setSelection(goalIndex)
         }
@@ -636,7 +637,12 @@ class ProfileFragment : Fragment() {
                 otherRadio.isChecked -> "Other"
                 else -> ""
             }
-            val goal = goalSpinner.selectedItem.toString()
+            val goal = if (goalSpinner.selectedItemPosition == 0) "" else goalSpinner.selectedItem.toString()
+
+            if (name.isEmpty()) {
+                Toast.makeText(requireContext(), "Please enter your name", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
             viewModel.updateProfile(
                 name = name,
@@ -663,7 +669,7 @@ class ProfileFragment : Fragment() {
                 otherRadio.isChecked -> "Other"
                 else -> ""
             }
-            val goal = goalSpinner.selectedItem.toString()
+            val goal = if (goalSpinner.selectedItemPosition == 0) "" else goalSpinner.selectedItem.toString()
 
             if (name.isEmpty()) {
                 Toast.makeText(requireContext(), "Please enter your name", Toast.LENGTH_SHORT).show()

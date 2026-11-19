@@ -127,6 +127,7 @@ class WellnessRepository @Inject constructor(
     /** Current hydration state, for callers outside the UI (e.g. the reminder worker). */
     suspend fun hydrationSnapshot(): HydrationState {
         awaitReady()
+        refreshAll() // the process may have outlived midnight; no-op on the same day
         return hydrationFlow.value
     }
 
@@ -213,6 +214,9 @@ class WellnessRepository @Inject constructor(
             enqueue { habitDao.upsert(habit) }
         }
     }
+
+    /** True if any stored active habit has [id], whether or not it is scheduled today. */
+    fun hasHabit(id: Long): Boolean = state.habits.any { it.id == id }
 
     fun updateHabit(updated: Habit) {
         synchronized(lock) {

@@ -55,9 +55,9 @@ class MoodCalendarAdapter(
                 
                 // Apply color tint if it's a filled day but not selected (to show mood color)
                 if (!item.isSelected && item.backgroundColor != null) {
-                    binding.calendarCell.background.setTint(item.backgroundColor)
+                    binding.calendarCell.background.mutate().setTint(item.backgroundColor)
                 } else {
-                    binding.calendarCell.background.setTintList(null)
+                    binding.calendarCell.background.mutate().setTintList(null)
                 }
 
                 val emojiVisible = !item.emoji.isNullOrEmpty()

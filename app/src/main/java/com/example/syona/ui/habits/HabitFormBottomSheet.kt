@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.recyclerview.widget.GridLayoutManager
 import com.example.syona.R
 import com.example.syona.data.model.Habit
@@ -139,6 +140,11 @@ class HabitFormBottomSheet : BottomSheetDialogFragment() {
                 if (binding.cbSat.isChecked) days.add(java.util.Calendar.SATURDAY)
                 days
             } else null
+
+            if (frequency == HabitFrequency.CUSTOM && customDays.isNullOrEmpty()) {
+                Toast.makeText(requireContext(), R.string.error_select_custom_day, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
             val selectedIcon = iconAdapter.getSelected()
             val notes = binding.notesEditText.text?.toString()?.takeIf { it.isNotBlank() }

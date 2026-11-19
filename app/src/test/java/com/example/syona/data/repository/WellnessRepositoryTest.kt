@@ -223,4 +223,23 @@ class WellnessRepositoryTest {
         runCurrent()
         assertEquals(listOf(2), moodDao.entries.value.values.map { it.score })
     }
+
+    @Test fun hydrationSnapshotRollsOverAfterMidnightWithoutRefresh() = runTest {
+        val r = repo()
+        r.addWaterIntake(2000)
+        runCurrent()
+        clock.advance(Duration.ofDays(1))
+        assertEquals(0, r.hydrationSnapshot().intake)
+    }
+
+    @Test fun hasHabitSeesHabitsNotScheduledToday() = runTest {
+        val r = repo()
+        // 2026-11-19 is a Thursday, so a Sunday-only habit is hidden today.
+        r.addHabit("Long run", HabitIcon.HEART, "Custom", listOf(java.util.Calendar.SUNDAY), null)
+        assertTrue(r.observeHabits().value.isEmpty())
+        runCurrent()
+        val id = habitDao.habits.value.keys.single()
+        assertTrue(r.hasHabit(id))
+        assertFalse(r.hasHabit(id + 1))
+    }
 }
